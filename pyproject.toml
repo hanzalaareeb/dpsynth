@@ -26,6 +26,7 @@ dependencies = [
     "apache-beam",
     "dp-accounting",
     "more-itertools",
+    "tqdm",
     "mbi @ git+https://github.com/ryan112358/mbi.git",
 ]
 dynamic = ["version"]
