@@ -1,0 +1,161 @@
+age:
+  clip_to_range: true
+  dtype: int
+  max_value: 90.0
+  min_value: 17.0
+capital-gain:
+  clip_to_range: true
+  dtype: int
+  max_value: 99999.0
+  min_value: 0.0
+capital-loss:
+  clip_to_range: true
+  dtype: int
+  max_value: 4356.0
+  min_value: 0.0
+education:
+  out_of_domain_index: 0
+  possible_values:
+  - 10th
+  - 11th
+  - 12th
+  - 1st-4th
+  - 5th-6th
+  - 7th-8th
+  - 9th
+  - Assoc-acdm
+  - Assoc-voc
+  - Bachelors
+  - Doctorate
+  - HS-grad
+  - Masters
+  - Preschool
+  - Prof-school
+  - Some-college
+education-num:
+  clip_to_range: true
+  dtype: int
+  max_value: 16.0
+  min_value: 1.0
+fnlwgt:
+  clip_to_range: true
+  dtype: int
+  max_value: 1490400.0
+  min_value: 12285.0
+hours-per-week:
+  clip_to_range: true
+  dtype: int
+  max_value: 99.0
+  min_value: 1.0
+income>50K:
+  out_of_domain_index: 0
+  possible_values:
+  - <=50K
+  - '>50K'
+marital-status:
+  out_of_domain_index: 0
+  possible_values:
+  - Divorced
+  - Married-AF-spouse
+  - Married-civ-spouse
+  - Married-spouse-absent
+  - Never-married
+  - Separated
+  - Widowed
+native-country:
+  out_of_domain_index: 0
+  possible_values:
+  - '?'
+  - Cambodia
+  - Canada
+  - China
+  - Columbia
+  - Cuba
+  - Dominican-Republic
+  - Ecuador
+  - El-Salvador
+  - England
+  - France
+  - Germany
+  - Greece
+  - Guatemala
+  - Haiti
+  - Holand-Netherlands
+  - Honduras
+  - Hong
+  - Hungary
+  - India
+  - Iran
+  - Ireland
+  - Italy
+  - Jamaica
+  - Japan
+  - Laos
+  - Mexico
+  - Nicaragua
+  - Outlying-US(Guam-USVI-etc)
+  - Peru
+  - Philippines
+  - Poland
+  - Portugal
+  - Puerto-Rico
+  - Scotland
+  - South
+  - Taiwan
+  - Thailand
+  - Trinadad&Tobago
+  - United-States
+  - Vietnam
+  - Yugoslavia
+occupation:
+  out_of_domain_index: 0
+  possible_values:
+  - '?'
+  - Adm-clerical
+  - Armed-Forces
+  - Craft-repair
+  - Exec-managerial
+  - Farming-fishing
+  - Handlers-cleaners
+  - Machine-op-inspct
+  - Other-service
+  - Priv-house-serv
+  - Prof-specialty
+  - Protective-serv
+  - Sales
+  - Tech-support
+  - Transport-moving
+race:
+  out_of_domain_index: 0
+  possible_values:
+  - Amer-Indian-Eskimo
+  - Asian-Pac-Islander
+  - Black
+  - Other
+  - White
+relationship:
+  out_of_domain_index: 0
+  possible_values:
+  - Husband
+  - Not-in-family
+  - Other-relative
+  - Own-child
+  - Unmarried
+  - Wife
+sex:
+  out_of_domain_index: 0
+  possible_values:
+  - Female
+  - Male
+workclass:
+  out_of_domain_index: 0
+  possible_values:
+  - '?'
+  - Federal-gov
+  - Local-gov
+  - Never-worked
+  - Private
+  - Self-emp-inc
+  - Self-emp-not-inc
+  - State-gov
+  - Without-pay

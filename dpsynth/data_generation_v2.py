@@ -35,7 +35,6 @@ import numpy as np
 import pandas as pd
 import pipeline_dp
 
-
 Dataset: TypeAlias = pd.DataFrame
 
 
@@ -71,8 +70,8 @@ def _compute_privacy_parameters(
   """Compute privacy parameters for one-way marginals and discrete mechanism."""
 
   one_way_marginal_sigma = dp_accounting.get_sigma_gaussian(
-      epsilon=one_way_marginal_budget_fraction*epsilon,
-      delta=one_way_marginal_budget_fraction*delta
+      epsilon=one_way_marginal_budget_fraction * epsilon,
+      delta=one_way_marginal_budget_fraction * delta,
   )
   one_way_marginal_gdp_mu = 1.0 / one_way_marginal_sigma**2
 
@@ -142,6 +141,11 @@ def generate(
     if col not in data.columns:
       raise ValueError(
           f'{col=} not found in the dataset. Available columns: {data.columns}'
+      )
+    if isinstance(domains[col], domain.FreeFormTextAttribute):
+      raise ValueError(
+          f'FreeFormTextAttribute is not supported for column {col!r}.'
+          ' Free-form text attributes cannot be synthesized by this mechanism.'
       )
 
   backend = pipeline_dp.LocalBackend()

@@ -61,9 +61,7 @@ class MechanismTest(absltest.TestCase):
     ]
 
     df = pd.DataFrame(data=values, columns=["A", "B"], dtype=float)
-    synthetic_df = data_generation_v2.generate(
-        df, attribute_domains, 1000, 0.1
-    )
+    synthetic_df = data_generation_v2.generate(df, attribute_domains, 1000, 0.1)
     self.assertListEqual(synthetic_df.columns.tolist(), ["A", "B"])
     for col in attribute_domains:
       dom = attribute_domains[col]
@@ -112,6 +110,7 @@ class MechanismTest(absltest.TestCase):
         cross_attribute_constraints=[constraint],
         skip_compression=True,
     )
+
     def is_valid(row):
       return (row["A"], row["B"]) in constraint.possible_combinations
 
@@ -144,6 +143,17 @@ class MechanismTest(absltest.TestCase):
     self.assertTrue(
         synthetic_df["B"].between(dom_b.min_value, dom_b.max_value).all()
     )
+
+  def test_raises_on_freeform_text_attribute(self):
+    attribute_domains = {
+        "A": domain.CategoricalAttribute(possible_values=["a", "b"]),
+        "text": domain.FreeFormTextAttribute(max_tokens=128),
+    }
+    df = pd.DataFrame({"A": ["a", "b"], "text": ["hello", "world"]})
+    with self.assertRaises(ValueError):
+      data_generation_v2.generate(
+          df, attribute_domains, epsilon=1.0, delta=1e-5
+      )
 
 
 if __name__ == "__main__":

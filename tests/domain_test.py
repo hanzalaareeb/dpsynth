@@ -85,6 +85,50 @@ class TestDomain(absltest.TestCase):
     for value in ood_values:
       self.assertIsNone(attribute.standardize(value))
 
+  def test_freeform_text_defaults(self):
+    attribute = domain.FreeFormTextAttribute()
+    self.assertEqual(attribute.max_tokens, 256)
+    self.assertIsNone(attribute.description)
+    self.assertIsNone(attribute.formatting)
+    self.assertIsNone(attribute.exemplar)
+
+  def test_freeform_text_custom_values(self):
+    attribute = domain.FreeFormTextAttribute(
+        max_tokens=512,
+        description='A patient note.',
+        formatting='Bullet points only.',
+        exemplar='- Presents with headache.',
+    )
+    self.assertEqual(attribute.max_tokens, 512)
+    self.assertEqual(attribute.description, 'A patient note.')
+    self.assertEqual(attribute.formatting, 'Bullet points only.')
+    self.assertEqual(attribute.exemplar, '- Presents with headache.')
+
+  def test_freeform_text_yaml_roundtrip(self):
+    original_domain = {
+        'cat': domain.CategoricalAttribute(possible_values=['A', 'B']),
+        'num': domain.NumericalAttribute(min_value=0, max_value=10),
+        'text': domain.FreeFormTextAttribute(
+            max_tokens=128,
+            description='Free text.',
+            formatting='Paragraphs.',
+            exemplar='Hello world.',
+        ),
+    }
+    temp_file = self.create_tempfile('temp.yaml', mode='w+')
+    domain.to_yaml_file(original_domain, temp_file.full_path)
+    loaded_domain = domain.from_yaml_file(temp_file.full_path)
+    self.assertEqual(loaded_domain, original_domain)
+
+  def test_freeform_text_yaml_backward_compatibility(self):
+    """A YAML file written with fewer fields can still be loaded."""
+    yaml_content = 'text:\n  max_tokens: 64\n'
+    temp_file = self.create_tempfile('compat.yaml', content=yaml_content)
+    loaded = domain.from_yaml_file(temp_file.full_path)
+    self.assertEqual(
+        loaded['text'], domain.FreeFormTextAttribute(max_tokens=64)
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
