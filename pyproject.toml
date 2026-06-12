@@ -25,7 +25,10 @@ dependencies = [
     "tensorflow",
     "apache-beam",
     "dp-accounting",
+    "jax[cpu]",
     "more-itertools",
+    "networkx",
+    "scipy",
     "tqdm",
     "mbi @ git+https://github.com/ryan112358/mbi.git",
 ]
@@ -38,6 +41,7 @@ changelog = "https://github.com/google/dpsynth/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
+    "chex",
     "pytest",
     "pytest-xdist",
 ]
