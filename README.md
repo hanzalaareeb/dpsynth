@@ -6,6 +6,26 @@ schema, our library can generate a synthetic version of the dataset, preserving
 the structure and statistical properties of the source data while satisfying
 differential privacy.
 
+> [!WARNING]
+> **This library is under active development.** APIs may change without notice,
+> and you may encounter bugs, rough edges, or incomplete features. For standard
+> tabular data settings (categorical and numerical attributes, single-table
+> schemas), DPSynth should work well out-of-the-box — but more advanced use
+> cases may hit limitations we haven't smoothed out yet.
+>
+> We have a long roadmap of features we plan to add. In the meantime, we
+> welcome early adopters to:
+>
+> *   **Try it out** on your own datasets and use cases.
+> *   **Report issues** — bugs, confusing behavior, or sharp edges.
+> *   **Benchmark it** against other DP synthetic data implementations.
+> *   **Suggest features** that would be valuable for your workflows.
+> *   **Contribute** — whether it's a GitHub issue, pull request, new mechanism,
+>     bug fix, or added functionality, contributions are welcome!
+>
+> Your feedback directly shapes the library's direction. Thank you for your
+> patience as we build toward a stable release!
+
 ## Two Code Paths
 
 DPSynth contains **two independent implementations** of differentially private
