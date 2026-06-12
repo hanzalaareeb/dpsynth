@@ -188,3 +188,27 @@ class SelectPartitionsSipsTest(parameterized.TestCase):
       primitives.select_partitions_sips(
           self.rng, data, gdp_budget=10.0, delta=1e-5, user_ids=user_ids
       )
+
+
+class GaussianHistogramTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.rng = np.random.default_rng(42)
+
+  def test_basic_operation(self):
+    data = np.array([0, 0, 1, 1, 1, 2])
+    result = primitives.gaussian_histogram(self.rng, data, 4, sigma=1.0)
+    self.assertLen(result, 4)
+    # Noisy counts should be close to true counts [2, 3, 1, 0].
+    np.testing.assert_allclose(result, [2, 3, 1, 0], atol=5.0)
+
+  def test_zero_sigma(self):
+    data = np.array([0, 0, 1, 2, 2, 2])
+    result = primitives.gaussian_histogram(self.rng, data, 3, sigma=0.0)
+    np.testing.assert_array_equal(result, [2, 1, 3])
+
+  def test_empty_data(self):
+    data = np.array([], dtype=int)
+    result = primitives.gaussian_histogram(self.rng, data, 3, sigma=1.0)
+    self.assertLen(result, 3)

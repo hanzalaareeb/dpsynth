@@ -66,3 +66,57 @@ class NumericalInitializer:
     )
     transform_fn = transformations.discrete_encoder(attr) @ discretize_fn
     return ColumnMeasurement(attr, transform_fn, None)
+
+
+@dataclasses.dataclass
+class CategoricalInitializer:
+  """Mechanism that measures a noisy histogram for categorical data.
+
+  Computes a closed-domain histogram over the pre-specified categories using
+  the Gaussian mechanism. Values not in the domain are mapped to the
+  attribute's designated out-of-domain value before histogramming.
+
+  Attributes:
+    name: Attribute name used as the clique key in the measurement.
+    attribute: The CategoricalAttribute defining the closed domain.
+    rng: A numpy random number generator.
+  """
+
+  name: str
+  attribute: domain.CategoricalAttribute
+  rng: np.random.Generator
+
+  def dp_event(self, zcdp_rho: float) -> dp_accounting.DpEvent:
+    """Returns the DpEvent for the Gaussian mechanism.
+
+    Args:
+      zcdp_rho: Total zCDP privacy budget.
+
+    Returns:
+      A GaussianDpEvent describing the privacy cost.
+    """
+    # Gaussian mechanism with L2 sensitivity 1: rho = 1 / (2 * sigma^2).
+    sigma = 1.0 / np.sqrt(2.0 * zcdp_rho)
+    return dp_accounting.GaussianDpEvent(noise_multiplier=sigma)
+
+  def __call__(self, zcdp_rho: float, data: np.ndarray) -> ColumnMeasurement:
+    """Returns a differentially private measurement of the given data.
+
+    Args:
+      zcdp_rho: Total zCDP privacy budget for the histogram measurement.
+      data: 1D array of raw categorical values.
+
+    Returns:
+      A ColumnMeasurement containing the categorical attribute, the encoding
+      transform, and a LinearMeasurement with the noisy histogram.
+    """
+    sigma = 1.0 / np.sqrt(2.0 * zcdp_rho)
+    transform_fn = transformations.discrete_encoder(self.attribute)
+    encoded = np.array([transform_fn(v) for v in data])
+    noisy_counts = primitives.gaussian_histogram(
+        self.rng, encoded, self.attribute.size, sigma
+    )
+    measurement = mbi.LinearMeasurement(
+        noisy_counts, (self.name,), stddev=sigma
+    )
+    return ColumnMeasurement(self.attribute, transform_fn, measurement)

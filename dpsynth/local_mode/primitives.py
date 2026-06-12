@@ -280,3 +280,29 @@ def select_partitions_sips(
   selected_partitions = np.concatenate(selected_partitions)
   selected_counts = np.concatenate(selected_counts)
   return selected_partitions, selected_counts, max_sigma
+
+
+def gaussian_histogram(
+    rng: np.random.Generator,
+    data: np.ndarray,
+    domain_size: int,
+    sigma: float,
+) -> np.ndarray:
+  """Computes a noisy histogram over a closed domain using the Gaussian mechanism.
+
+  The histogram query has L2 sensitivity 1 under item-level DP (each record
+  contributes +1 to exactly one bin). Gaussian noise with the given standard
+  deviation is added independently to each bin count.
+
+  Args:
+    rng: A numpy random number generator.
+    data: 1D array of integer-encoded categorical values in [0, domain_size).
+    domain_size: Number of categories in the closed domain.
+    sigma: Standard deviation of the Gaussian noise added to each bin.
+
+  Returns:
+    A length-`domain_size` array of noisy counts.
+  """
+  return np.bincount(data, minlength=domain_size) + rng.normal(
+      scale=sigma, size=domain_size
+  )

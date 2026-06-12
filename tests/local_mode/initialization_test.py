@@ -56,5 +56,53 @@ class InitializationTest(absltest.TestCase):
     np.testing.assert_array_equal(counts, [3, 2, 2, 2])
 
 
+class CategoricalInitializerTest(absltest.TestCase):
+
+  def test_dp_event(self):
+    attr = domain.CategoricalAttribute(possible_values=['A', 'B', 'C'])
+    rng = np.random.default_rng(0)
+    initializer = initialization.CategoricalInitializer(
+        name='test', attribute=attr, rng=rng
+    )
+    event = initializer.dp_event(zcdp_rho=0.5)
+    self.assertIsInstance(event, dp_accounting.GaussianDpEvent)
+    # rho = 0.5 => sigma = 1/sqrt(2*0.5) = 1.0
+    self.assertEqual(event.noise_multiplier, 1.0)
+
+  def test_call_noiseless(self):
+    attr = domain.CategoricalAttribute(possible_values=['A', 'B', 'C'])
+    rng = np.random.default_rng(0)
+    initializer = initialization.CategoricalInitializer(
+        name='col', attribute=attr, rng=rng
+    )
+    data = np.array(['A', 'A', 'B', 'C', 'C', 'C'])
+    result = initializer(zcdp_rho=np.inf, data=data)
+
+    self.assertIsInstance(result, initialization.ColumnMeasurement)
+    self.assertEqual(result.categorical_attribute, attr)
+    self.assertIsNotNone(result.measurement)
+    np.testing.assert_array_equal(
+        result.measurement.noisy_measurement, [2, 1, 3]
+    )
+    self.assertEqual(result.measurement.clique, ('col',))
+    self.assertEqual(result.measurement.stddev, 0.0)
+
+  def test_out_of_domain_values(self):
+    attr = domain.CategoricalAttribute(
+        possible_values=[None, 'X', 'Y'], out_of_domain_index=0
+    )
+    rng = np.random.default_rng(0)
+    initializer = initialization.CategoricalInitializer(
+        name='col', attribute=attr, rng=rng
+    )
+    data = np.array(['X', 'Y', 'Z', 'W'])
+    result = initializer(zcdp_rho=np.inf, data=data)
+
+    # 'Z' and 'W' are OOD, mapped to index 0 (None).
+    np.testing.assert_array_equal(
+        result.measurement.noisy_measurement, [2, 1, 1]
+    )
+
+
 if __name__ == '__main__':
   absltest.main()
