@@ -14,15 +14,19 @@
 
 """Utilities for measuring and integer-encoding single columns."""
 
+from __future__ import annotations
+
 import dataclasses
+from typing import TypeVar
 
 import dp_accounting
 from dpsynth import domain
 from dpsynth import transformations
-from dpsynth.discrete_mechanisms import accounting
 from dpsynth.local_mode import primitives
 import mbi
 import numpy as np
+
+_M = TypeVar('_M')
 
 
 @dataclasses.dataclass
@@ -32,35 +36,52 @@ class ColumnMeasurement:
   measurement: mbi.LinearMeasurement | None
 
 
+def _validate_mechanism(mechanism: _M | None) -> _M:
+  """Validates that the mechanism has been calibrated and returns it."""
+  if mechanism is None:
+    raise ValueError('Must call calibrate() before using the mechanism.')
+  return mechanism
+
+
 @dataclasses.dataclass
-class NumericalInitializer:
-  """Mechanism that creates the data encoding transform for numerical data."""
+class NumericalInitializer(primitives.DPMechanism):
+  """Mechanism that creates the data encoding transform for numerical data.
+
+  Internally delegates to a ``DPQuantiles`` mechanism for privacy accounting
+  and quantile computation.
+
+  Attributes:
+    name: Attribute name used as the clique key in the measurement.
+    num_partitions: Number of quantile partitions (must be a power of 2).
+    attribute: The NumericalAttribute defining the data domain.
+  """
 
   name: str
   num_partitions: int
   attribute: domain.NumericalAttribute
-  rng: np.random.Generator
+  mechanism: primitives.DPQuantiles | None = dataclasses.field(
+      default=None, repr=False
+  )
 
-  def dp_event(self, zcdp_rho: float) -> dp_accounting.DpEvent:
-    levels = int(np.log2(self.num_partitions))
-    budget_weights = 4 ** np.arange(levels)[::-1]
-    rho_levels = zcdp_rho * budget_weights / budget_weights.sum()
-    epsilons = [accounting.zcdp_exponential_eps(rho) for rho in rho_levels]
+  def calibrate(self, *, zcdp_rho: float) -> NumericalInitializer:
+    """Returns a copy calibrated to the given zCDP budget."""
+    mechanism = primitives.DPQuantiles(
+        lower=self.attribute.min_value,
+        upper=self.attribute.max_value,
+        num_partitions=self.num_partitions,
+    ).calibrate(zcdp_rho=zcdp_rho)
+    return dataclasses.replace(self, mechanism=mechanism)
 
-    return dp_accounting.ComposedDpEvent(
-        [dp_accounting.ExponentialMechanismDpEvent(epsilon=e) for e in epsilons]
-    )
+  @property
+  def dp_event(self) -> dp_accounting.DpEvent:
+    """Returns the composed privacy event for the quantile computation."""
+    return _validate_mechanism(self.mechanism).dp_event
 
-  def __call__(self, zcdp_rho: float, data: np.ndarray) -> ColumnMeasurement:
-    """Returns a differentially private measurement of the given data."""
-    bucket_edges = primitives.quantiles(
-        self.rng,
-        data,
-        self.attribute.min_value,
-        self.attribute.max_value,
-        self.num_partitions,
-        zcdp_rho,
-    )
+  def __call__(
+      self, rng: np.random.Generator, data: np.ndarray
+  ) -> ColumnMeasurement:
+    """Returns a ColumnMeasurement with the discretization transform."""
+    bucket_edges = _validate_mechanism(self.mechanism)(rng, data)
     attr, discretize_fn = transformations.create_discretize_transformation(
         self.attribute, bucket_edges
     )
@@ -69,61 +90,51 @@ class NumericalInitializer:
 
 
 @dataclasses.dataclass
-class CategoricalInitializer:
+class CategoricalInitializer(primitives.DPMechanism):
   """Mechanism that measures a noisy histogram for categorical data.
 
-  Computes a closed-domain histogram over the pre-specified categories using
-  the Gaussian mechanism. Values not in the domain are mapped to the
-  attribute's designated out-of-domain value before histogramming.
+  Internally delegates to a ``DPGaussianHistogram`` mechanism for privacy
+  accounting and noise addition.
 
   Attributes:
     name: Attribute name used as the clique key in the measurement.
     attribute: The CategoricalAttribute defining the closed domain.
-    rng: A numpy random number generator.
   """
 
   name: str
   attribute: domain.CategoricalAttribute
-  rng: np.random.Generator
+  mechanism: primitives.DPGaussianHistogram | None = dataclasses.field(
+      default=None, repr=False
+  )
 
-  def dp_event(self, zcdp_rho: float) -> dp_accounting.DpEvent:
-    """Returns the DpEvent for the Gaussian mechanism.
+  def calibrate(self, *, zcdp_rho: float) -> CategoricalInitializer:
+    """Returns a copy calibrated to the given zCDP budget."""
+    mechanism = primitives.DPGaussianHistogram(
+        domain_size=self.attribute.size,
+    ).calibrate(zcdp_rho=zcdp_rho)
+    return dataclasses.replace(self, mechanism=mechanism)
 
-    Args:
-      zcdp_rho: Total zCDP privacy budget.
+  @property
+  def dp_event(self) -> dp_accounting.DpEvent:
+    """Returns the Gaussian privacy event for this mechanism."""
+    return _validate_mechanism(self.mechanism).dp_event
 
-    Returns:
-      A GaussianDpEvent describing the privacy cost.
-    """
-    # Gaussian mechanism with L2 sensitivity 1: rho = 1 / (2 * sigma^2).
-    sigma = 1.0 / np.sqrt(2.0 * zcdp_rho)
-    return dp_accounting.GaussianDpEvent(noise_multiplier=sigma)
-
-  def __call__(self, zcdp_rho: float, data: np.ndarray) -> ColumnMeasurement:
-    """Returns a differentially private measurement of the given data.
-
-    Args:
-      zcdp_rho: Total zCDP privacy budget for the histogram measurement.
-      data: 1D array of raw categorical values.
-
-    Returns:
-      A ColumnMeasurement containing the categorical attribute, the encoding
-      transform, and a LinearMeasurement with the noisy histogram.
-    """
-    sigma = 1.0 / np.sqrt(2.0 * zcdp_rho)
+  def __call__(
+      self, rng: np.random.Generator, data: np.ndarray
+  ) -> ColumnMeasurement:
+    """Returns a ColumnMeasurement with the noisy histogram."""
+    mechanism = _validate_mechanism(self.mechanism)
     transform_fn = transformations.discrete_encoder(self.attribute)
     encoded = np.array([transform_fn(v) for v in data])
-    noisy_counts = primitives.gaussian_histogram(
-        self.rng, encoded, self.attribute.size, sigma
-    )
+    noisy_counts = mechanism(rng, encoded)
     measurement = mbi.LinearMeasurement(
-        noisy_counts, (self.name,), stddev=sigma
+        noisy_counts, (self.name,), stddev=mechanism.sigma
     )
     return ColumnMeasurement(self.attribute, transform_fn, measurement)
 
 
 @dataclasses.dataclass
-class OpenSetCategoricalInitializer:
+class OpenSetCategoricalInitializer(primitives.DPMechanism):
   """Mechanism that discovers and measures an open-set categorical domain.
 
   Uses Gaussian Thresholding (Algorithm 2 from the DP-SIPS paper) to privately
@@ -144,51 +155,38 @@ class OpenSetCategoricalInitializer:
     delta: Failure probability for the partition selection threshold. Must be
       subtracted from the overall delta budget by the caller, since it is not
       captured in the DpEvent returned by ``dp_event``.
-    rng: A numpy random number generator.
   """
 
   name: str
   attribute: domain.OpenSetCategoricalAttribute
   delta: float
-  rng: np.random.Generator
+  mechanism: primitives.DPGaussianHistogram | None = dataclasses.field(
+      default=None, repr=False
+  )
 
-  def dp_event(self, zcdp_rho: float) -> dp_accounting.DpEvent:
-    """Returns the DpEvent for the Gaussian Thresholding mechanism.
+  def calibrate(self, *, zcdp_rho: float) -> OpenSetCategoricalInitializer:
+    """Returns a copy calibrated to the given zCDP budget."""
+    mechanism = primitives.DPGaussianHistogram(
+        domain_size=0,
+    ).calibrate(zcdp_rho=zcdp_rho)
+    return dataclasses.replace(self, mechanism=mechanism)
 
-    Note: The returned GaussianDpEvent captures only the GDP (zero-delta)
-    component of the privacy cost. The additional ``delta`` cost from the
-    thresholding step is tracked via the ``delta`` attribute on this
-    dataclass and must be accounted for separately by the caller.
+  @property
+  def dp_event(self) -> dp_accounting.DpEvent:
+    """Returns the Gaussian privacy event for the thresholding mechanism."""
+    return _validate_mechanism(self.mechanism).dp_event
 
-    Args:
-      zcdp_rho: Total zCDP privacy budget.
-
-    Returns:
-      A single GaussianDpEvent (pure GDP, no delta component).
-    """
-    gdp_budget = accounting.zcdp_to_gdp(zcdp_rho)
-    sigma = 1.0 / np.sqrt(gdp_budget)
-    return dp_accounting.GaussianDpEvent(noise_multiplier=sigma)
-
-  def __call__(self, zcdp_rho: float, data: np.ndarray) -> ColumnMeasurement:
-    """Returns a differentially private measurement of the given data.
-
-    Args:
-      zcdp_rho: Total zCDP privacy budget for partition selection.
-      data: 1D array of raw categorical values.
-
-    Returns:
-      A ColumnMeasurement containing the discovered CategoricalAttribute, the
-      encoding transform, and a LinearMeasurement with the noisy counts from
-      DP-SIPS. The last entry in the domain is the default_value catch-all
-      whose count is not measured (set to zero in the measurement).
-    """
+  def __call__(
+      self, rng: np.random.Generator, data: np.ndarray
+  ) -> ColumnMeasurement:
+    """Returns a differentially private measurement of the given data."""
+    sigma = _validate_mechanism(self.mechanism).sigma
+    gdp_budget = np.inf if sigma == 0.0 else 1.0 / (sigma**2)
     # Map raw values to integer partition IDs for thresholding.
     unique_values, inverse = np.unique(data, return_inverse=True)
-    gdp_budget = accounting.zcdp_to_gdp(zcdp_rho)
     selected_ids, counts, stddev = (
         primitives.select_partitions_gaussian_thresholding(
-            self.rng, inverse, gdp_budget, self.delta
+            rng, inverse, gdp_budget, self.delta
         )
     )
     selected_values = list(unique_values[selected_ids])
