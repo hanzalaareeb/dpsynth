@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from absl.testing import absltest
-from eval import correlation_computation
-from eval import types
+from dpsynth.eval import correlation_computation
+from dpsynth.eval import types
 from dpsynth.pipeline_transformations import diagnostic_info
 import pipeline_dp
 
@@ -55,12 +55,23 @@ class CorrelationComputationTest(absltest.TestCase):
   def test_compute_correlation_distance(self):
     backend = pipeline_dp.LocalBackend()
 
-    report = diagnostic_info.TabularEvalReport()
-    report.original_dataset_statistics.correlations.add(
-        attribute_x="a", attribute_y="b", value=0.5
+    original_stats = diagnostic_info.DatasetStatistics(
+        correlations=[
+            diagnostic_info.CorrelationValue(
+                attribute_x="a", attribute_y="b", value=0.5
+            )
+        ]
     )
-    report.synthetic_dataset_statistics.correlations.add(
-        attribute_x="a", attribute_y="b", value=0.3
+    synthetic_stats = diagnostic_info.DatasetStatistics(
+        correlations=[
+            diagnostic_info.CorrelationValue(
+                attribute_x="a", attribute_y="b", value=0.3
+            )
+        ]
+    )
+    report = diagnostic_info.TabularEvalReport(
+        original_dataset_statistics=original_stats,
+        synthetic_dataset_statistics=synthetic_stats,
     )
 
     report_col = [report]

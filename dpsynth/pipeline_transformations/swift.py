@@ -85,7 +85,7 @@ def fit_model(
 
   # 4. Select queries.
   mechanism_spec = budget_accountant.request_budget(
-      pipeline_dp.MechanismType.GAUSSIAN,
+      pipeline_dp.budget_accounting.MechanismType.GAUSSIAN,
       name='Swift Select Queries',
       weight=parameters.select_budget_frac,
   )
@@ -192,7 +192,7 @@ def _add_noise_fn(
   sigma = accounting.gdp_gaussian_sigma(budget)
 
   spec = pipeline_dp.budget_accounting.MechanismSpec(
-      mechanism_type=pipeline_dp.MechanismType.GAUSSIAN,
+      mechanism_type=pipeline_dp.budget_accounting.MechanismType.GAUSSIAN,
       name='Swift Measure Marginal',
   )
   spec.set_noise_standard_deviation(sigma)

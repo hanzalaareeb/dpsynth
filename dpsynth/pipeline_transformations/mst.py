@@ -145,7 +145,7 @@ def _select_dp_maximum_spanning_tree(
   # Laplace mechanism is used as dominating mechanism for Exponential mechanism.
   # is supported by dp_accounting library.
   budget = accountant.request_budget(
-      pipeline_dp.MechanismType.LAPLACE,
+      pipeline_dp.budget_accounting.MechanismType.LAPLACE,
       count=num_attributes - 1,
       name="MST Exponential Mechanism",
   )

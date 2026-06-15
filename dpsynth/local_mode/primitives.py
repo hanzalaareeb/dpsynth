@@ -166,7 +166,9 @@ def _contribution_bound(prng, user_ids, max_part):
   """Return array idx where all ids appear <=max_part times in user_ids[idx]."""
   # Sort by ID + noise to shuffle within groups. Then find where
   # groups start/end, and select the first max_part elements of each group.
-  idx = np.argsort(user_ids + prng.uniform(size=user_ids.size))
+  # Use lexsort with random keys to shuffle string/object IDs safely.
+  random_keys = prng.uniform(size=user_ids.size)
+  idx = np.lexsort((random_keys, user_ids))
   sorted_ids = user_ids[idx]
   diff = np.r_[True, sorted_ids[1:] != sorted_ids[:-1]]
   kernel = np.ones(max_part, dtype=bool)
@@ -277,6 +279,12 @@ def select_partitions_sips(
       rem_user_ids = rem_user_ids[mask]
       rem_partitions = rem_partitions[mask]
 
+  if not selected_partitions:
+    return (
+        np.empty(0, dtype=data.dtype),
+        np.empty(0, dtype=float),
+        max_sigma,
+    )
   selected_partitions = np.concatenate(selected_partitions)
   selected_counts = np.concatenate(selected_counts)
   return selected_partitions, selected_counts, max_sigma

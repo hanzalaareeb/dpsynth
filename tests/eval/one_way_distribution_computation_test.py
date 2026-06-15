@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from absl.testing import absltest
-from eval import one_way_distribution_computation
+from dpsynth.eval import one_way_distribution_computation
 from dpsynth.pipeline_transformations import diagnostic_info
 import pipeline_dp
 
@@ -48,33 +48,44 @@ class OneWayDistributionComputationTest(absltest.TestCase):
   def test_compute_one_way_marginal_distance(self):
     backend = pipeline_dp.LocalBackend()
 
-    original_stats = diagnostic_info.DatasetStatistics(num_records=100)
-    attr1_stats = original_stats.attribute_statistics.add()
-    attr1_stats.attribute_name = "attr1"
-    attr1_stats.num_non_none_values = 100
-    attr1_stats.categorical_statistics.num_categories = 2
-    attr1_stats.categorical_statistics.category_counts.add(
-        category="a", count=50
-    )
-    attr1_stats.categorical_statistics.category_counts.add(
-        category="b", count=50
-    )
-
-    synthetic_stats = diagnostic_info.DatasetStatistics(num_records=100)
-    s_attr1_stats = synthetic_stats.attribute_statistics.add()
-    s_attr1_stats.attribute_name = "attr1"
-    s_attr1_stats.num_non_none_values = 100
-    s_attr1_stats.categorical_statistics.num_categories = 2
-    s_attr1_stats.categorical_statistics.category_counts.add(
-        category="a", count=60
-    )
-    s_attr1_stats.categorical_statistics.category_counts.add(
-        category="b", count=40
+    original_stats = diagnostic_info.DatasetStatistics(
+        num_records=100,
+        attribute_statistics=[
+            diagnostic_info.AttributeStatistics(
+                attribute_name="attr1",
+                num_non_none_values=100,
+                categorical_statistics=diagnostic_info.CategoricalAttributeStatistics(
+                    num_categories=2,
+                    category_counts=[
+                        diagnostic_info.CategoryCount(category="a", count=50),
+                        diagnostic_info.CategoryCount(category="b", count=50),
+                    ],
+                ),
+            )
+        ],
     )
 
-    eval_report = diagnostic_info.TabularEvalReport()
-    eval_report.original_dataset_statistics.CopyFrom(original_stats)
-    eval_report.synthetic_dataset_statistics.CopyFrom(synthetic_stats)
+    synthetic_stats = diagnostic_info.DatasetStatistics(
+        num_records=100,
+        attribute_statistics=[
+            diagnostic_info.AttributeStatistics(
+                attribute_name="attr1",
+                num_non_none_values=100,
+                categorical_statistics=diagnostic_info.CategoricalAttributeStatistics(
+                    num_categories=2,
+                    category_counts=[
+                        diagnostic_info.CategoryCount(category="a", count=60),
+                        diagnostic_info.CategoryCount(category="b", count=40),
+                    ],
+                ),
+            )
+        ],
+    )
+
+    eval_report = diagnostic_info.TabularEvalReport(
+        original_dataset_statistics=original_stats,
+        synthetic_dataset_statistics=synthetic_stats,
+    )
 
     eval_report_col = [eval_report]
     result_eval_report = list(

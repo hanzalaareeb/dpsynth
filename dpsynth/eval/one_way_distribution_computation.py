@@ -17,7 +17,7 @@
 from collections.abc import Iterable
 import dataclasses
 from typing import Any
-from eval import types
+from dpsynth.eval import types
 from dpsynth.pipeline_transformations import diagnostic_info
 import numpy as np
 import pipeline_dp
@@ -57,9 +57,9 @@ def compute_one_way_marginal_distance(
     for i, (org, syn) in enumerate(
         zip(original_statistics, synthetic_statistics)
     ):
-      if not org.HasField("categorical_statistics"):
+      if not org.categorical_statistics is not None:
         continue
-      if not syn.HasField("categorical_statistics"):
+      if not syn.categorical_statistics is not None:
         continue
       if org.attribute_name != syn.attribute_name:
         raise ValueError(

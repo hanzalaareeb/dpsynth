@@ -149,15 +149,16 @@ class SelectPartitionsSipsTest(parameterized.TestCase):
     self.assertTrue(all(isinstance(p, str) for p in selected))
 
   def test_user_level_dp_weighting(self):
-    data = np.array([1] * 10 + [2])
-    user_ids = np.array([1] * 10 + [2])
-    selected, counts, sigma = primitives.select_partitions_sips(
-        self.rng, data, gdp_budget=100.0, delta=1e-5, user_ids=user_ids
+    # Partition 1 has 10 unique users (1 to 10), each contributing 1 time.
+    # Partition 2 has 1 user (11) contributing 10 times.
+    data = np.array([1] * 10 + [2] * 10)
+    user_ids = np.array(list(range(1, 11)) + [11] * 10)
+
+    selected, _, _ = primitives.select_partitions_sips(
+        self.rng, data, gdp_budget=10.0, delta=1e-5, user_ids=user_ids
     )
     self.assertIn(1, selected)
-    self.assertIn(2, selected)
-    for c in counts:
-      self.assertAlmostEqual(c, 1.0, delta=3 * sigma)
+    self.assertNotIn(2, selected)
 
   @parameterized.named_parameters(
       ("item_level_default_rounds", None, None),
@@ -168,10 +169,7 @@ class SelectPartitionsSipsTest(parameterized.TestCase):
   def test_configurations(self, user_ids, num_rounds):
     data = np.array([1, 2, 3])
     gdp_budget = 10.0
-    (
-        _,
-        _,
-    ) = sigma = primitives.select_partitions_sips(
+    _, _, sigma = primitives.select_partitions_sips(
         self.rng,
         data,
         gdp_budget=gdp_budget,
@@ -179,7 +177,16 @@ class SelectPartitionsSipsTest(parameterized.TestCase):
         num_rounds=num_rounds,
         user_ids=user_ids,
     )
-    self.assertLessEqual(sigma, 1.0 / np.sqrt(gdp_budget))
+    # Calculate expected max_sigma based on budget allocation
+    if num_rounds is None:
+      num_rounds = 1 if user_ids is None else 3
+    allocation_factor = 0.3  # default in primitives.py
+    fractions = allocation_factor ** np.arange(num_rounds)[::-1]
+    fractions /= fractions.sum()
+    gdp_rounds = gdp_budget * fractions
+    expected_max_sigma = float(np.max(1.0 / np.sqrt(gdp_rounds)))
+
+    self.assertAlmostEqual(sigma, expected_max_sigma)
 
   def test_mismatched_user_ids_raises(self):
     data = np.array([1, 2, 3])

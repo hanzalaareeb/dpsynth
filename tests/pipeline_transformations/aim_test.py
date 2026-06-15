@@ -160,7 +160,7 @@ class AimTest(absltest.TestCase):
   def test_add_dp_noise(self):
     clique_marginal = ((0, 1), np.ones(100000))
     mechanism_spec = pipeline_dp.budget_accounting.MechanismSpec(
-        pipeline_dp.MechanismType.GAUSSIAN
+        pipeline_dp.budget_accounting.MechanismType.GAUSSIAN
     )
     mechanism_spec.set_noise_standard_deviation(2.0)
 

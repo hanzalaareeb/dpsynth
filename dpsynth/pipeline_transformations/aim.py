@@ -147,12 +147,12 @@ def _get_dp_parameters(
   # Laplace mechanism is used as a dominating mechanism for the exponential
   # mechanism.
   exponential_budget = accountant.request_budget(
-      pipeline_dp.MechanismType.LAPLACE,
+      pipeline_dp.budget_accounting.MechanismType.LAPLACE,
       count=rounds,
       name='AIM Exponential Mechanism',
   )
   gaussian_budget = accountant.request_budget(
-      pipeline_dp.MechanismType.GAUSSIAN,
+      pipeline_dp.budget_accounting.MechanismType.GAUSSIAN,
       count=rounds,
       name='AIM Gaussian Mechanism',
   )
