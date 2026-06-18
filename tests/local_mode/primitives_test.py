@@ -302,7 +302,7 @@ class GaussianHistogramTest(absltest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class DPQuantilesTest(absltest.TestCase):
+class DPQuantilesTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
@@ -315,12 +315,21 @@ class DPQuantilesTest(absltest.TestCase):
     result = calibrated(self.rng, data)
     self.assertLen(result, 3)
 
-  def test_direct_zcdp_rho(self):
-    mech = primitives.DPQuantiles(
-        lower=0.0, upper=10.0, num_partitions=4, zcdp_rho=100.0
-    )
-    result = mech(self.rng, np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]))
-    self.assertLen(result, 3)
+  @parameterized.parameters([0.3, 1.0, 2.718])
+  def test_calibrate_default_ratio(self, zcdp_rho):
+    mech = primitives.DPQuantiles(lower=0.0, upper=10.0, num_partitions=4)
+    calibrated = mech.calibrate(zcdp_rho=zcdp_rho)
+    # Default ratio=2: deeper level gets double the epsilon.
+    events = calibrated.dp_event.events
+    self.assertLen(events, 2)
+    np.testing.assert_allclose(events[0].epsilon / events[1].epsilon, 2.0)
+
+  def test_calibrate_custom_ratio(self):
+    mech = primitives.DPQuantiles(lower=0.0, upper=10.0, num_partitions=4)
+    calibrated = mech.calibrate(zcdp_rho=1.0, epsilon_ratio=1.0)
+    # Ratio=1 means uniform epsilon across levels.
+    events = calibrated.dp_event.events
+    np.testing.assert_allclose(events[0].epsilon, events[1].epsilon)
 
   def test_dp_event_raises_before_calibration(self):
     mech = primitives.DPQuantiles(lower=0.0, upper=10.0, num_partitions=4)
