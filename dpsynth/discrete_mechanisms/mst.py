@@ -233,11 +233,13 @@ class MSTMechanism(primitives.DPMechanism):
 
     if initial_measurements is None:
       budget_remaining -= self.one_way_budget_fraction * self.zcdp_rho
+      one_way_rho = self.zcdp_rho * self.one_way_budget_fraction
+      one_way_sigma = accounting.zcdp_gaussian_sigma(one_way_rho)
       one_way_measurements = common.measure_marginals_with_noise(
           rng,
           data,
           marginal_queries=[(a,) for a in data.domain],
-          gdp_sigma=self.zcdp_rho * self.one_way_budget_fraction,
+          gdp_sigma=one_way_sigma,
       )
     else:
       one_way_measurements = initial_measurements
