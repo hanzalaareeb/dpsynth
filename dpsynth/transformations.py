@@ -169,6 +169,7 @@ def create_discretize_transformation(
   ]
   intervals = pd.IntervalIndex.from_breaks(bin_edges)
   maybe_none = [] if attribute_domain.clip_to_range else [None]
+  sentinel = attribute_domain.resolved_sentinel
   possible_values = maybe_none + list(intervals)
 
   def transform(value: Any) -> pd.Interval | None:
@@ -190,7 +191,7 @@ def create_discretize_transformation(
 
   def reverse(value: pd.Interval | None) -> float | pd.Interval | None:
     if value is None:
-      return None
+      return sentinel
     if attribute_domain.interval_handling == 'interval':
       return value
     if attribute_domain.interval_handling == 'sample':

@@ -16,6 +16,7 @@ import math
 
 from absl.testing import absltest
 from dpsynth import domain
+import numpy as np
 
 
 class TestDomain(absltest.TestCase):
@@ -99,6 +100,55 @@ class TestDomain(absltest.TestCase):
 
     for value in ood_values:
       self.assertIsNone(attribute.standardize(value))
+
+  def test_numerical_attribute_default_sentinel(self):
+    attribute = domain.NumericalAttribute(0, 10)
+    self.assertIsNone(attribute.sentinel)
+    self.assertTrue(np.isnan(attribute.resolved_sentinel))
+
+  def test_numerical_attribute_custom_sentinel(self):
+    attribute = domain.NumericalAttribute(0, 10, sentinel=-1)
+    self.assertEqual(attribute.sentinel, -1)
+    self.assertEqual(attribute.resolved_sentinel, -1)
+
+  def test_sentinel_yaml_roundtrip(self):
+    original = {
+        'num': domain.NumericalAttribute(
+            min_value=0, max_value=10, clip_to_range=False, sentinel=-1
+        ),
+    }
+    temp_file = self.create_tempfile('temp.yaml', mode='w+')
+    domain.to_yaml_file(original, temp_file.full_path)
+    loaded = domain.from_yaml_file(temp_file.full_path)
+    self.assertEqual(loaded['num'].sentinel, -1)
+
+  def test_string_sentinel_allowed_with_interval_handling(self):
+    attr = domain.NumericalAttribute(
+        0, 10, sentinel='MISSING', interval_handling='interval'
+    )
+    self.assertEqual(attr.sentinel, 'MISSING')
+    self.assertEqual(attr.resolved_sentinel, 'MISSING')
+
+  def test_interval_handling_default_sentinel(self):
+    attr = domain.NumericalAttribute(0, 10, interval_handling='interval')
+    self.assertIsNone(attr.sentinel)
+    self.assertEqual(attr.resolved_sentinel, '')
+
+  def test_string_sentinel_rejected_with_midpoint_handling(self):
+    with self.assertRaises(ValueError):
+      domain.NumericalAttribute(0, 10, sentinel='MISSING')
+
+  def test_numeric_sentinel_rejected_with_interval_handling(self):
+    with self.assertRaises(ValueError):
+      domain.NumericalAttribute(
+          0, 10, sentinel=42, interval_handling='interval'
+      )
+
+  def test_numpy_numeric_sentinel_accepted(self):
+    attr = domain.NumericalAttribute(0, 10, sentinel=np.int32(-1))
+    self.assertEqual(attr.sentinel, -1)
+    attr = domain.NumericalAttribute(0, 10, sentinel=np.float32(0.5))
+    self.assertAlmostEqual(attr.sentinel, 0.5, places=5)
 
   def test_freeform_text_defaults(self):
     attribute = domain.FreeFormTextAttribute()

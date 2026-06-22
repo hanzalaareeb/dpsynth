@@ -162,7 +162,8 @@ def undiscretize(
     A 1-D array.  For ``'midpoint'`` and ``'sample'`` the dtype is float
     (or int when ``dtype == 'int'`` and all values are in-domain).  For
     ``'interval'`` the dtype is ``object`` (strings).  Out-of-domain bins
-    (index 0 when ``clip_to_range`` is ``False``) map to ``NaN`` or ``""``.
+    (index 0 when ``clip_to_range`` is ``False``) map to
+    ``attribute_domain.resolved_sentinel``.
   """
   rng = np.random.default_rng(rng)
   min_, max_ = attribute_domain.exclusive_min_value, attribute_domain.max_value
@@ -170,16 +171,15 @@ def undiscretize(
   full_edges = np.r_[min_, bin_edges, max_]
   lefts, rights = full_edges[:-1], full_edges[1:]
   handling = attribute_domain.interval_handling
+  sentinel = attribute_domain.resolved_sentinel
 
   if handling == 'interval':
     values = np.array([f'({l}, {r}]' for l, r in zip(lefts, rights)], dtype=str)
     if not attribute_domain.clip_to_range:
-      sentinel = np.array('', dtype=str)
-      values = np.r_[sentinel, values]
+      values = np.r_[np.array(sentinel, dtype=str), values]
     return values[bin_indices]
   elif handling == 'sample':
     if not attribute_domain.clip_to_range:
-      sentinel = np.nan
       ood = bin_indices == 0
       idx = bin_indices - 1
       result = np.where(ood, sentinel, rng.uniform(lefts[idx], rights[idx]))
@@ -188,14 +188,12 @@ def undiscretize(
   elif handling == 'midpoint':
     midpoints = (lefts + rights) / 2.0
     if not attribute_domain.clip_to_range:
-      sentinel = np.nan
       midpoints = np.r_[sentinel, midpoints]
     result = midpoints[bin_indices]
   else:
     raise ValueError(f'Unsupported interval_handling: {handling}')
 
   if attribute_domain.dtype == 'int' and attribute_domain.clip_to_range:
-    # If clip_to_range=False, then NaNs are possible so we don't cast to int.
     result = np.ceil(result).astype(int)
   return result
 

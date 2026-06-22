@@ -50,6 +50,7 @@ import pathlib
 from typing import Any, Literal, TypeAlias
 
 import attr
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -141,6 +142,13 @@ class NumericalAttribute:
       max_value] if they are a numeric type, and to min_value otherwise.  If
       False, out-of-domain values will be grouped together and treated as a
       single special out-of-domain value.
+    sentinel: The value to assign to out-of-domain entries during reverse
+      discretization when ``clip_to_range`` is False. Defaults to ``None``,
+      which resolves to ``np.nan`` for numeric modes or ``''`` for
+      ``interval_handling='interval'``. Set to an integer (e.g. ``-1``) to keep
+      the output array as an integer dtype instead of silently promoting to
+      float. When explicitly set, must be a string for interval mode and numeric
+      for other modes. Use ``resolved_sentinel`` to get the effective value.
     dtype: The dtype of the data (either 'int' or 'float').
     interval_handling: Controls how discretized intervals are converted back to
       numerical values. 'midpoint' returns the interval midpoint (or the finite
@@ -153,6 +161,7 @@ class NumericalAttribute:
   min_value: float = attr.field(converter=float)
   max_value: float = attr.field(converter=float)
   clip_to_range: bool = attr.field(default=True)
+  sentinel: float | int | str | None = attr.field(default=None)
   dtype: str = attr.field(default='float')
   interval_handling: str = attr.field(default='midpoint')
   description: str | None = attr.field(default=None)
@@ -174,11 +183,34 @@ class NumericalAttribute:
 
   @interval_handling.validator  # pytype: disable=attribute-error
   def _validate_interval_handling(self, *_):
+    """Validates interval_handling mode and sentinel type compatibility."""
     if self.interval_handling not in ['midpoint', 'sample', 'interval']:
       raise ValueError(
           'interval_handling must be "midpoint", "sample", or "interval",'
           f' got {self.interval_handling}.'
       )
+    if self.sentinel is not None:
+      if self.interval_handling == 'interval':
+        if not isinstance(self.sentinel, str):
+          raise ValueError(
+              "interval_handling='interval' requires a string sentinel, got"
+              f' sentinel={self.sentinel!r}.'
+          )
+      elif not isinstance(self.sentinel, (int, float, np.integer, np.floating)):
+        raise ValueError(
+            'sentinel must be numeric when'
+            f' interval_handling={self.interval_handling!r}, got'
+            f' sentinel={self.sentinel!r}.'
+        )
+
+  @property
+  def resolved_sentinel(self) -> float | int | str:
+    """Returns the effective sentinel, with mode-appropriate defaults."""
+    if self.sentinel is not None:
+      return self.sentinel
+    if self.interval_handling == 'interval':
+      return ''
+    return np.nan
 
   @property
   def exclusive_min_value(self) -> float:

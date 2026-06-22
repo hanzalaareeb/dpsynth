@@ -238,17 +238,18 @@ class UndiscretizeTest(parameterized.TestCase):
     self.assertIn('(', result[0])
     self.assertIn(']', result[0])
 
-  def test_interval_mode_ood_empty_string(self):
+  def test_string_sentinel_interval(self):
     attr = domain.NumericalAttribute(
         min_value=0,
         max_value=10,
         clip_to_range=False,
+        sentinel='MISSING',
         interval_handling='interval',
     )
     result = vectorized_transformations.undiscretize(
         np.array([0, 1]), np.array([5.0]), attr
     )
-    self.assertEqual(result[0], '')
+    self.assertEqual(result[0], 'MISSING')
     self.assertIn('(', result[1])
 
   def test_invalid_bin_edges_raises(self):
@@ -265,6 +266,31 @@ class UndiscretizeTest(parameterized.TestCase):
       vectorized_transformations.undiscretize(
           np.array([1]), np.array([5.0, 3.0]), attr
       )
+
+  def test_custom_sentinel_midpoint(self):
+    attr = domain.NumericalAttribute(
+        min_value=0, max_value=10, clip_to_range=False, sentinel=-1
+    )
+    result = vectorized_transformations.undiscretize(
+        np.array([0, 1, 2]), np.array([5.0]), attr
+    )
+    self.assertEqual(result[0], -1)
+    self.assertBetween(result[1], 0, 5)
+    self.assertBetween(result[2], 5, 10)
+
+  def test_custom_sentinel_sample(self):
+    rng = np.random.default_rng(0)
+    attr = domain.NumericalAttribute(
+        min_value=0,
+        max_value=10,
+        clip_to_range=False,
+        sentinel=-1,
+        interval_handling='sample',
+    )
+    result = vectorized_transformations.undiscretize(
+        np.array([0, 1]), np.array([5.0]), attr, rng=rng
+    )
+    self.assertEqual(result[0], -1)
 
 
 class MergeRareValuesTest(absltest.TestCase):

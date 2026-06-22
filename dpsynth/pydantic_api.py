@@ -172,4 +172,10 @@ def dp_synthetic_data_generation(
       discrete_config=mechanism_config,
   )
 
-  return [cls(**user) for _, user in synthetic.iterrows()]
+  return [
+      cls(**{
+          k: None if isinstance(v, float) and math.isnan(v) else v
+          for k, v in user.items()
+      })
+      for _, user in synthetic.iterrows()
+  ]

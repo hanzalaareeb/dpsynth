@@ -149,7 +149,25 @@ class TestDataTransformations(absltest.TestCase):
 
     self.assertBetween(transform_fn.inverse(interval1), 0, 5)
     self.assertBetween(transform_fn.inverse(interval2), 5, 10)
-    self.assertIsNone(transform_fn.inverse(None))
+    self.assertTrue(np.isnan(transform_fn.inverse(None)))
+
+  def test_discretize_inverse_sentinel_default_nan(self):
+    attr = domain.NumericalAttribute(
+        min_value=0, max_value=10, clip_to_range=False
+    )
+    _, transform_fn = transformations.create_discretize_transformation(
+        attr, [5]
+    )
+    self.assertTrue(np.isnan(transform_fn.inverse(None)))
+
+  def test_discretize_inverse_custom_sentinel(self):
+    attr = domain.NumericalAttribute(
+        min_value=0, max_value=10, clip_to_range=False, sentinel=-1
+    )
+    _, transform_fn = transformations.create_discretize_transformation(
+        attr, [5]
+    )
+    self.assertEqual(transform_fn.inverse(None), -1)
 
   def test_valid_discretization_for_int_attribute(self):
     attr = domain.NumericalAttribute(min_value=0, max_value=10, dtype='int')
@@ -180,7 +198,7 @@ class TestDataTransformations(absltest.TestCase):
       values.add(value)
     # Sample mode should produce non-constant output (unlike midpoint).
     self.assertGreater(len(values), 1)
-    self.assertIsNone(transform_fn.inverse(None))
+    self.assertTrue(np.isnan(transform_fn.inverse(None)))
 
   def test_discretize_interval_handling_interval(self):
     attr = domain.NumericalAttribute(
@@ -191,7 +209,7 @@ class TestDataTransformations(absltest.TestCase):
     )
     interval = pd.Interval(5, 10)
     self.assertEqual(transform_fn.inverse(interval), interval)
-    self.assertIsNone(transform_fn.inverse(None))
+    self.assertEqual(transform_fn.inverse(None), '')
 
   def test_discretize_reverse_semi_infinite_intervals(self):
     # Midpoint mode: semi-infinite intervals should return the finite endpoint.
