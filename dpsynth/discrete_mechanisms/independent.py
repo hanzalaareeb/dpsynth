@@ -79,8 +79,11 @@ class IndependentMechanism(primitives.DPMechanism):
     attributes = len(data.domain)
     per_query_sigma = self.gdp_sigma * attributes**0.5
     measurements = initial_measurements or []
+    existing_cliques = {m.clique for m in measurements}
     for attr in data.domain:
       clique = (attr,)
+      if clique in existing_cliques:
+        continue
       marginal = data.project(clique).datavector()
       noisy_marginal = (
           marginal + rng.normal(size=marginal.shape) * per_query_sigma

@@ -225,7 +225,7 @@ class NumericalAttribute:
       low_value = invalid_value = self.min_value
       high_value = self.max_value
     else:
-      low_value = high_value = invalid_value = None
+      low_value = high_value = invalid_value = float('nan')
     try:
       value = float(value)  # works for anything that converts to float.
       if math.isnan(value):

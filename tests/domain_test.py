@@ -99,7 +99,7 @@ class TestDomain(absltest.TestCase):
       self.assertEqual(attribute.standardize(value), value)
 
     for value in ood_values:
-      self.assertIsNone(attribute.standardize(value))
+      self.assertTrue(math.isnan(attribute.standardize(value)))
 
   def test_numerical_attribute_default_sentinel(self):
     attribute = domain.NumericalAttribute(0, 10)

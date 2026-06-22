@@ -52,7 +52,7 @@ def _filter_candidates(
 
   def expected_size(cl):
     return mbi.junction_tree.hypothetical_model_size(
-        model.domain, model.cliques + [cl]
+        model.domain, [*model.cliques, cl]
     )
 
   ans = {}

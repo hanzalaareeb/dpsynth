@@ -14,6 +14,7 @@
 
 """Use DP mechanism to automatically dsicretize numerical data."""
 
+import math
 from typing import Any
 
 from dpsynth import domain
@@ -102,9 +103,11 @@ def _quantiles(
   def extract_and_normalize_fields(row):
     for field_name, attribute in field_name_to_attribute.items():
       value = attribute.standardize(row[field_name])
-      if value is not None:
+      if value is not None and not (
+          isinstance(value, float) and math.isnan(value)
+      ):
         normalizer = attribute.max_value - attribute.min_value
-        yield field_name, (row[field_name] - attribute.min_value) / normalizer
+        yield field_name, (value - attribute.min_value) / normalizer
 
   extracted_fields = backend.flat_map(
       pcol, extract_and_normalize_fields, "Extract and scale fields"

@@ -216,7 +216,7 @@ class MstTest(absltest.TestCase):
 
     self.assertIsInstance(fitted_model, mbi.MarkovRandomField)
     self.assertEqual(fitted_model.domain.shape, (2, 2))
-    self.assertEqual(fitted_model.potentials.cliques, [(0, 1)])
+    self.assertEqual(tuple(fitted_model.potentials.cliques), ((0, 1),))
 
 
 if __name__ == "__main__":

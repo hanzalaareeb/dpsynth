@@ -354,6 +354,29 @@ class DPQuantilesTest(parameterized.TestCase):
     self.assertIsInstance(event, dp_accounting.ComposedDpEvent)
     self.assertEmpty(event.events)
 
+  def test_quantiles_filters_nan(self):
+    """DPQuantiles should handle NaN in input data without crashing."""
+    data = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
+    mechanism = primitives.DPQuantiles(lower=0.0, upper=10.0, num_partitions=4)
+    calibrated = mechanism.calibrate(zcdp_rho=10.0)
+    result = calibrated(self.rng, data)
+    edges = result.quantiles
+    self.assertLen(edges, 3)
+    for e in edges:
+      self.assertBetween(e, 0.0, 10.0)
+
+  def test_median_zero_length_intervals(self):
+    """_median should handle degenerate lower == upper from recursive splits."""
+    data = np.array([5.0, 5.0, 5.0, 5.0])
+    med = primitives._median(self.rng, data, lower=5.0, upper=5.0, epsilon=0.01)
+    self.assertEqual(med, 5.0)
+
+  def test_median_data_at_boundaries(self):
+    """_median handles data near boundaries where jitter gets clipped back."""
+    data = np.array([0.0, 0.0, 0.0, 5.0, 10.0, 10.0])
+    med = primitives._median(self.rng, data, lower=0.0, upper=10.0, epsilon=1.0)
+    self.assertBetween(med, 0.0, 10.0)
+
 
 class DPGaussianHistogramTest(absltest.TestCase):
 

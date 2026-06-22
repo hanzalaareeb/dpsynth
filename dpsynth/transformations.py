@@ -174,7 +174,7 @@ def create_discretize_transformation(
 
   def transform(value: Any) -> pd.Interval | None:
     value = attribute_domain.standardize(value)
-    if value is None:
+    if value is None or (isinstance(value, float) and math.isnan(value)):
       return None
     return intervals[intervals.get_loc(value)]
 

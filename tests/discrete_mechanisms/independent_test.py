@@ -21,7 +21,7 @@ import numpy as np
 class IndependentTest(absltest.TestCase):
 
   def test_fits_one_way_marginals(self):
-    data = mbi.Dataset.synthetic(mbi.Domain(["a", "b", "c"], [3, 4, 5]), N=1000)
+    data = mbi.Dataset.synthetic(mbi.Domain(['a', 'b', 'c'], [3, 4, 5]), N=1000)
 
     config = independent.IndependentMechanism(pgm_iters=500)
     synthetic = config.calibrate(zcdp_rho=10000)(
@@ -33,6 +33,20 @@ class IndependentTest(absltest.TestCase):
       actual = synthetic.project([col]).datavector()
       np.testing.assert_allclose(actual, expected, atol=0.1)
 
+  def test_skips_duplicate_cliques_from_initial_measurements(self):
+    """IndependentMechanism should not re-measure pre-measured cliques."""
+    data = mbi.Dataset.synthetic(mbi.Domain(['a', 'b', 'c'], [3, 4, 5]), N=100)
+    # Pre-measure column 'a'.
+    marginal_a = data.project(('a',)).datavector()
+    initial = [mbi.LinearMeasurement(marginal_a, ('a',), stddev=1.0)]
 
-if __name__ == "__main__":
+    config = independent.IndependentMechanism(pgm_iters=500)
+    # This should not raise 'Cliques must be unique'.
+    model = config.calibrate(zcdp_rho=100.0)(
+        np.random.default_rng(0), data, initial_measurements=initial
+    )
+    self.assertIsNotNone(model)
+
+
+if __name__ == '__main__':
   absltest.main()

@@ -152,6 +152,8 @@ def _median(
   """
   if lower > upper:
     raise ValueError(f'{lower=} cannot be greater than {upper=}.')
+  if lower == upper:
+    return lower
 
   clamped_data = np.clip(data, lower, upper)
   n = clamped_data.size
@@ -550,11 +552,17 @@ class DPQuantiles(DPMechanism):
     """Computes differentially private quantiles."""
     if self._epsilon_levels is None:
       raise ValueError(_UNCALIBRATED_MSG.format(param='_epsilon_levels'))
-    return QuantileResult(
-        quantiles=_quantiles(
-            rng, data, self.lower, self.upper, np.asarray(self._epsilon_levels)
-        )
+    # Filter NaN values — they represent missing data and cannot participate
+    # in the exponential mechanism's interval scoring.
+    finite_data = data[np.isfinite(data.astype(float))]
+    result = _quantiles(
+        rng,
+        finite_data,
+        self.lower,
+        self.upper,
+        np.asarray(self._epsilon_levels),
     )
+    return QuantileResult(quantiles=result)
 
 
 @dataclasses.dataclass

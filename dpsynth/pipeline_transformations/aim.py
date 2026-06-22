@@ -193,7 +193,7 @@ def _find_worst_approximated_marginal(
     clique, _ = m
     if clique in selected_marginals:
       return False
-    new_cliques = model.cliques + [clique]
+    new_cliques = [*model.cliques, clique]
     return (
         mbi.junction_tree.hypothetical_model_size(model.domain, new_cliques)
         <= max_model_size

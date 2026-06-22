@@ -53,7 +53,7 @@ def _filter_candidates(
   free_cliques = common.downward_closure(model.cliques)
   domain = model.domain
   for cl in candidates:
-    cliques = model.cliques + [cl]
+    cliques = [*model.cliques, cl]
     cond1 = (
         mbi.junction_tree.hypothetical_model_size(domain, cliques) <= size_limit
     )
