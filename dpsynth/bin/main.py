@@ -105,15 +105,12 @@ def main(_):
     case _:
       raise ValueError(f'Unknown mechanism: {_MECHANISM.value}')
 
-  synthetic_df = dpsynth.generate(
-      df,
-      attribute_domains,
-      epsilon=_EPSILON.value,
-      delta=_DELTA.value,
-      discrete_config=mechanism_config,
-  )
-
-  synthetic_df.to_csv(_OUTPUT_PATH.value, index=False)
+  mechanism = dpsynth.TabularSynthesizer(
+      domains=attribute_domains,
+      discrete_mechanism=mechanism_config,
+  ).calibrate(epsilon=_EPSILON.value, delta=_DELTA.value)
+  result = mechanism(np.random.default_rng(_SEED.value), df)
+  result.synthetic_data.to_csv(_OUTPUT_PATH.value, index=False)
 
 
 if __name__ == '__main__':

@@ -14,11 +14,15 @@
 
 """Implementation of an end-to-end DP synthetic data generation mechanism.
 
-In this module there is implementation to run locally.
+.. deprecated::
+    This module is deprecated. Use
+    :class:`dpsynth.data_generation_v3.TabularSynthesizer`
+    instead.
 """
 
 from collections.abc import Mapping, Sequence
 from typing import TypeAlias
+import warnings
 
 from absl import logging
 import dp_accounting
@@ -133,6 +137,12 @@ def generate(
   Returns:
     A synthetic dataset.
   """
+  warnings.warn(
+      'data_generation_v2.generate() is deprecated. Use'
+      ' data_generation_v3.TabularSynthesizer instead.',
+      DeprecationWarning,
+      stacklevel=2,
+  )
   assert 0 <= one_way_marginal_budget_fraction <= 1
   if not skip_compression and cross_attribute_constraints:
     raise ValueError(
