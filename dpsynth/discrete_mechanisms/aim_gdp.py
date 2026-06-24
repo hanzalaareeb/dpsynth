@@ -360,5 +360,7 @@ class AIMGDPMechanism(primitives.DPMechanism):
         )
 
     return common.DiscreteMechanismResult(
-        model=model, measurements=measurements
+        model=model,
+        synthetic_data=model.synthetic_data(),
+        measurements=measurements,
     )

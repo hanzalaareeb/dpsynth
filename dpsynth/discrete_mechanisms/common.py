@@ -34,11 +34,13 @@ class DiscreteMechanismResult:
 
   Attributes:
     model: The estimated graphical model (Markov random field).
+    synthetic_data: A synthetic dataset whose marginals closely match the model.
     measurements: The noisy marginal measurements made by the mechanism.
     diagnostics: Optional mechanism-specific diagnostic information.
   """
 
   model: mbi.Model
+  synthetic_data: mbi.Dataset
   measurements: list[mbi.LinearMeasurement] = dataclasses.field(
       default_factory=list
   )

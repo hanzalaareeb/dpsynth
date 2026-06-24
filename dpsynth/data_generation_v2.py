@@ -282,7 +282,7 @@ def generate(
       initial_potentials=initial_potentials,
   )
 
-  synthetic_data = result.model.synthetic_data()
+  synthetic_data = result.synthetic_data
   logging.info('[SynthKit Tabular]: Generated discrete synthetic data.')
 
   # Convert synthetic data back to the original domain.

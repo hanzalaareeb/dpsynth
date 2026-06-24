@@ -273,5 +273,7 @@ class MSTMechanism(primitives.DPMechanism):
     )
     logging.info('[MST]: Fit distribution to the noisy measurements.')
     return common.DiscreteMechanismResult(
-        model=model, measurements=all_measurements
+        model=model,
+        synthetic_data=model.synthetic_data(),
+        measurements=all_measurements,
     )

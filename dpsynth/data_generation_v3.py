@@ -363,7 +363,7 @@ class TabularSynthesizer(primitives.DPMechanism):
         initial_measurements=one_way_measurements,
         initial_potentials=initial_potentials,
     )
-    synthetic_data = mechanism_result.model.synthetic_data()
+    synthetic_data = mechanism_result.synthetic_data
     logging.info('[DPSynth]: Generated discrete synthetic data.')
 
     # Phase 4: Decode synthetic data back to original domain.

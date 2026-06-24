@@ -94,5 +94,7 @@ class IndependentMechanism(primitives.DPMechanism):
         potentials=potentials,
     )
     return common.DiscreteMechanismResult(
-        model=model, measurements=measurements
+        model=model,
+        synthetic_data=model.synthetic_data(),
+        measurements=measurements,
     )

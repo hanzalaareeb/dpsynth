@@ -290,5 +290,7 @@ class AIMMechanism(primitives.DPMechanism):
         logging.info('[AIM] Reducing sigma: %.1f', sigma)
 
     return common.DiscreteMechanismResult(
-        model=model, measurements=measurements
+        model=model,
+        synthetic_data=model.synthetic_data(),
+        measurements=measurements,
     )

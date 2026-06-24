@@ -199,7 +199,9 @@ class SWIFTMechanism(primitives.DPMechanism):
     logging.info('[SWIFT] Estimated final model.')
 
     return common.DiscreteMechanismResult(
-        model=model, measurements=measurements
+        model=model,
+        synthetic_data=model.synthetic_data(),
+        measurements=measurements,
     )
 
 
