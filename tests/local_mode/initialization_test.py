@@ -125,9 +125,9 @@ class InitializationTest(absltest.TestCase):
         rng, data, estimated_total=100.0
     )
     self.assertIsNotNone(result.measurement)
-    # Measurement counts should sum to estimated_total.
+    # Measurement probabilities should sum to 1.0.
     np.testing.assert_allclose(
-        result.measurement.noisy_measurement.sum(), 100.0
+        result.measurement.noisy_measurement.sum(), 1.0, atol=1e-10
     )
 
   def test_numerical_initializer_measurement_with_estimated_total(self):
@@ -142,16 +142,16 @@ class InitializationTest(absltest.TestCase):
     )
 
     self.assertIsNotNone(result.measurement)
-    # Measurement should be uniform: 100.0 / num_bins for each bin.
+    # Measurement should be uniform probabilities: 1.0 / num_bins each.
     num_bins = result.categorical_attribute.size
-    expected_count = 100.0 / num_bins
+    expected_prob = 1.0 / num_bins
     np.testing.assert_allclose(
         result.measurement.noisy_measurement,
-        np.full(num_bins, expected_count),
+        np.full(num_bins, expected_prob),
     )
     self.assertEqual(result.measurement.clique, ('num_col',))
-    # stddev should be 1/sqrt(rho) = 1/sqrt(1.0) = 1.0
-    self.assertAlmostEqual(result.measurement.stddev, 1.0)
+    # stddev should be 1/(sqrt(rho) * estimated_total) = 1/(1.0 * 100) = 0.01
+    self.assertAlmostEqual(result.measurement.stddev, 0.01)
 
   def test_numerical_initializer_no_measurement_without_estimated_total(self):
     attr = domain.NumericalAttribute(min_value=0, max_value=10)
@@ -178,9 +178,9 @@ class InitializationTest(absltest.TestCase):
     # No edge should equal max_value (they get absorbed).
     if len(result.bin_edges) > 0:
       self.assertLess(result.bin_edges[-1], 10)
-    # Measurement counts must still sum to estimated_total.
+    # Measurement probabilities must still sum to 1.0.
     np.testing.assert_allclose(
-        result.measurement.noisy_measurement.sum(), 100.0
+        result.measurement.noisy_measurement.sum(), 1.0, atol=1e-10
     )
     # The last bin (containing max_value=10) should get the most mass.
     counts = result.measurement.noisy_measurement
@@ -198,11 +198,12 @@ class InitializationTest(absltest.TestCase):
       result = initializer.calibrate(zcdp_rho=1.0)(
           rng, data, estimated_total=100.0
       )
-      # Sum of measurement counts = estimated_total = num_partitions * per_bin.
+      # Sum of measurement probabilities = 1.0.
       np.testing.assert_allclose(
           result.measurement.noisy_measurement.sum(),
-          100.0,
-          err_msg=f'seed={seed}: counts do not sum to estimated_total',
+          1.0,
+          atol=1e-10,
+          err_msg=f'seed={seed}: probabilities do not sum to 1',
       )
 
   def test_integer_jitter_prevents_spurious_splits(self):
@@ -363,19 +364,21 @@ class MeasurementApproximationTest(parameterized.TestCase):
     self.assertGreaterEqual(num_bins, 2)
     measurement = result.measurement
     self.assertIsNotNone(measurement)
-    # Measurement counts must sum to estimated_total.
-    np.testing.assert_allclose(measurement.noisy_measurement.sum(), len(data))
-    # All measurement counts should be positive.
+    # Measurement probabilities must sum to 1.0.
+    np.testing.assert_allclose(
+        measurement.noisy_measurement.sum(), 1.0, atol=1e-10
+    )
+    # All measurement probabilities should be positive.
     self.assertTrue(
         np.all(measurement.noisy_measurement > 0),
-        f'non-positive measurement counts: {measurement.noisy_measurement}',
+        'non-positive measurement probabilities:'
+        f' {measurement.noisy_measurement}',
     )
     # -- Statistical approximation check --
     encoded = vtx.discretize(data, result.bin_edges, attr)
     true_counts = np.bincount(encoded, minlength=num_bins).astype(float)
-    meas_counts = measurement.noisy_measurement
     true_prob = true_counts / true_counts.sum()
-    meas_prob = meas_counts / meas_counts.sum()
+    meas_prob = measurement.noisy_measurement
     l1_dist = np.abs(true_prob - meas_prob).sum()
     # 3/sqrt(rho) covers quantile noise; 2-1/K covers uniform-vs-delta.
     max_l1 = max(3.0 / np.sqrt(rho), 2.0 - 1.0 / num_bins)
@@ -384,8 +387,8 @@ class MeasurementApproximationTest(parameterized.TestCase):
         max_l1,
         f'Measurement too far from true histogram (L1={l1_dist:.3f},'
         f' bound={max_l1:.3f}, rho={rho}):\n'
-        f'  true_counts = {true_counts}\n'
-        f'  meas_counts = {meas_counts}',
+        f'  true_prob = {true_prob}\n'
+        f'  meas_prob = {meas_prob}',
     )
 
   def test_measurement_property_random_configs(self):
@@ -432,12 +435,13 @@ class MeasurementApproximationTest(parameterized.TestCase):
         self.assertIsNotNone(measurement)
         np.testing.assert_allclose(
             measurement.noisy_measurement.sum(),
-            len(data),
-            err_msg=f'trial={trial}: counts do not sum to N',
+            1.0,
+            atol=1e-10,
+            err_msg=f'trial={trial}: probabilities do not sum to 1',
         )
         self.assertTrue(
             np.all(measurement.noisy_measurement > 0),
-            f'trial={trial}: non-positive counts '
+            f'trial={trial}: non-positive probabilities '
             f'{measurement.noisy_measurement}',
         )
 
@@ -445,9 +449,8 @@ class MeasurementApproximationTest(parameterized.TestCase):
         num_bins = result.categorical_attribute.size
         encoded = vtx.discretize(data, result.bin_edges, attr)
         true_counts = np.bincount(encoded, minlength=num_bins).astype(float)
-        meas_counts = measurement.noisy_measurement
         true_prob = true_counts / true_counts.sum()
-        meas_prob = meas_counts / meas_counts.sum()
+        meas_prob = measurement.noisy_measurement
         l1_dist = np.abs(true_prob - meas_prob).sum()
         max_l1 = max(3.0 / np.sqrt(rho), 2.0 - 1.0 / num_bins)
         self.assertLess(
@@ -456,8 +459,8 @@ class MeasurementApproximationTest(parameterized.TestCase):
             f'trial={trial} (rho={rho:.2f}, K={num_partitions},'
             f' modes={modes}, is_int={is_int}):\n'
             f'  L1={l1_dist:.3f}, bound={max_l1:.3f}\n'
-            f'  true_counts={true_counts}\n'
-            f'  meas_counts={meas_counts}',
+            f'  true_prob={true_prob}\n'
+            f'  meas_prob={meas_prob}',
         )
 
 

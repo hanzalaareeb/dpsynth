@@ -259,7 +259,7 @@ class PydanticTest(absltest.TestCase):
     synth = data_generation_v3.TabularSynthesizer(
         domains=domains,
     ).calibrate(epsilon=epsilon, delta=delta)
-    synthetic_df = synth(np.random.default_rng(), df)
+    synthetic_df = synth(np.random.default_rng(), df).synthetic_data
     synthetic_records = pydantic_api.dataframe_to_models(
         synthetic_df, SupportedModel, domains
     )
@@ -297,7 +297,7 @@ class PydanticTest(absltest.TestCase):
     synth = data_generation_v3.TabularSynthesizer(
         domains=domains,
     ).calibrate(epsilon=epsilon, delta=delta)
-    synthetic_df = synth(np.random.default_rng(), df)
+    synthetic_df = synth(np.random.default_rng(), df).synthetic_data
     synthetic_records = pydantic_api.dataframe_to_models(
         synthetic_df, ModelForNumericalDefaults, domains
     )
@@ -337,7 +337,7 @@ class PydanticTest(absltest.TestCase):
     synth = data_generation_v3.TabularSynthesizer(
         domains=domains,
     ).calibrate(epsilon=epsilon, delta=delta)
-    synthetic_df = synth(np.random.default_rng(), df)
+    synthetic_df = synth(np.random.default_rng(), df).synthetic_data
     synthetic_records = pydantic_api.dataframe_to_models(
         synthetic_df, ModelForCategorical, domains
     )

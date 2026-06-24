@@ -147,10 +147,18 @@ class NumericalInitializer(primitives.DPMechanism):
     measurement = None
     if estimated_total is not None:
       rho = self._zcdp_rho
-      uniform_counts = bin_weights * (estimated_total / self.num_partitions)
-      stddev = 1.0 / np.sqrt(rho)
+      if not self.attribute.clip_to_range:
+        # Prepend zero weight for the OUT_OF_DOMAIN slot at index 0.
+        bin_weights = np.r_[0, bin_weights]
+      # Query is the normalized histogram (probabilities); the noise scale
+      # absorbs the 1/estimated_total factor from dividing counts by n.
+      normalized = bin_weights / bin_weights.sum()
+      stddev = 1.0 / (np.sqrt(rho) * estimated_total)
       measurement = mbi.LinearMeasurement(
-          uniform_counts, (self.name,), stddev=stddev
+          normalized,
+          (self.name,),
+          stddev=stddev,
+          query=lambda f: f.normalize(1.0).datavector(),
       )
 
     return ColumnMeasurement(cat_attr, bin_edges, measurement=measurement)

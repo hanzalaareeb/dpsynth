@@ -489,32 +489,6 @@ def _select_partitions_sips(
   return selected_partitions, selected_counts, max_sigma
 
 
-def _gaussian_histogram(
-    rng: np.random.Generator,
-    data: np.ndarray,
-    domain_size: int,
-    sigma: float,
-) -> np.ndarray:
-  """Computes a noisy histogram over a closed domain using the Gaussian mechanism.
-
-  The histogram query has L2 sensitivity 1 under item-level DP (each record
-  contributes +1 to exactly one bin). Gaussian noise with the given standard
-  deviation is added independently to each bin count.
-
-  Args:
-    rng: A numpy random number generator.
-    data: 1D array of integer-encoded categorical values in [0, domain_size).
-    domain_size: Number of categories in the closed domain.
-    sigma: Standard deviation of the Gaussian noise added to each bin.
-
-  Returns:
-    A length-`domain_size` array of noisy counts.
-  """
-  return np.bincount(data, minlength=domain_size) + rng.normal(
-      scale=sigma, size=domain_size
-  )
-
-
 # ---------------------------------------------------------------------------
 # DPMechanism subclasses
 # ---------------------------------------------------------------------------
@@ -636,9 +610,33 @@ class DPGaussianHistogram(DPMechanism):
     """Computes a differentially private histogram."""
     if self.sigma is None:
       raise ValueError(_UNCALIBRATED_MSG.format(param='sigma'))
-    return HistogramResult(
-        counts=_gaussian_histogram(rng, data, self.domain_size, self.sigma)
-    )
+    true_counts = np.bincount(data, minlength=self.domain_size)
+    noise = rng.normal(scale=self.sigma, size=self.domain_size)
+    return HistogramResult(counts=true_counts + noise)
+
+
+@dataclasses.dataclass
+class DPGaussianCount(DPMechanism):
+  """Differentially private count via the Gaussian mechanism."""
+
+  sigma: float | None = None
+
+  def calibrate(self, *, zcdp_rho: float) -> DPGaussianCount:
+    """Returns a copy with sigma derived from the zCDP budget."""
+    return dataclasses.replace(self, sigma=math.sqrt(0.5 / zcdp_rho))
+
+  @property
+  def dp_event(self) -> dp_accounting.DpEvent:
+    """Returns the Gaussian privacy event for this mechanism."""
+    if self.sigma is None:
+      raise ValueError(_UNCALIBRATED_MSG.format(param='sigma'))
+    return dp_accounting.GaussianDpEvent(noise_multiplier=self.sigma)
+
+  def __call__(self, rng: np.random.Generator, data: np.ndarray) -> float:
+    """Returns a noisy count of len(data) + Gaussian noise."""
+    if self.sigma is None:
+      raise ValueError(_UNCALIBRATED_MSG.format(param='sigma'))
+    return float(len(data) + rng.normal(scale=self.sigma))
 
 
 @dataclasses.dataclass

@@ -108,6 +108,7 @@ class TabularSynthesizer(primitives.DPMechanism):
       default_factory=discrete_mechanisms.MSTMechanism
   )
   initializers: dict[str, primitives.DPMechanism] | None = None
+  total_count_mechanism: primitives.DPGaussianCount | None = None
   cross_attribute_constraints: Sequence[constraints.Constraint] = ()
 
   def calibrate(
@@ -190,11 +191,16 @@ class TabularSynthesizer(primitives.DPMechanism):
         self.domains, numerical_bins, init_delta
     )
     init_rho = init_budget_fraction * zcdp_rho
-    per_col_rho = init_rho / len(inits)
+    # +1 for the DPGaussianCount that always measures the total.
+    per_col_rho = init_rho / (len(inits) + 1)
     discrete_rho = zcdp_rho - init_rho
+
     calibrated_inits = {
         col: init.calibrate(zcdp_rho=per_col_rho) for col, init in inits.items()
     }
+    calibrated_total = primitives.DPGaussianCount().calibrate(
+        zcdp_rho=per_col_rho
+    )
     calibrated_discrete = self.discrete_mechanism.calibrate(
         zcdp_rho=discrete_rho
     )
@@ -202,6 +208,7 @@ class TabularSynthesizer(primitives.DPMechanism):
         self,
         initializers=calibrated_inits,
         discrete_mechanism=calibrated_discrete,
+        total_count_mechanism=calibrated_total,
     )
 
   def _calibrate_approx_dp(
@@ -237,7 +244,8 @@ class TabularSynthesizer(primitives.DPMechanism):
     inits = self.initializers or _create_initializers(
         self.domains, numerical_bins, init_delta
     )
-    num_columns = len(inits)
+    # +1 for the DPGaussianCount that always measures the total.
+    num_shares = len(inits) + 1
 
     # Stage 1: Convert (epsilon, remaining_delta) to zCDP and calibrate
     # initializers with init_budget_fraction of that budget.
@@ -248,15 +256,18 @@ class TabularSynthesizer(primitives.DPMechanism):
         make_fresh_accountant=dp_accounting.rdp.RdpAccountant,
     )
     init_rho = init_budget_fraction * total_rho
-    per_col_rho = init_rho / num_columns
+    per_col_rho = init_rho / num_shares
     calibrated_inits = {
         col: init.calibrate(zcdp_rho=per_col_rho) for col, init in inits.items()
     }
-
+    calibrated_total = primitives.DPGaussianCount().calibrate(
+        zcdp_rho=per_col_rho
+    )
     # Stage 2: With init dp_events fixed, find the tightest discrete budget.
     # The accountant handles ApproximateDpEvent deltas from open-set
     # initializers automatically.
     init_events = [init.dp_event for init in calibrated_inits.values()]
+    init_events.append(calibrated_total.dp_event)
 
     # Determine accountant type based on discrete mechanism's dp_event.
     probe_event = self.discrete_mechanism.calibrate(zcdp_rho=1.0).dp_event
@@ -285,6 +296,7 @@ class TabularSynthesizer(primitives.DPMechanism):
         self,
         initializers=calibrated_inits,
         discrete_mechanism=calibrated_discrete,
+        total_count_mechanism=calibrated_total,
     )
 
   @property
@@ -297,9 +309,10 @@ class TabularSynthesizer(primitives.DPMechanism):
     Raises:
       ValueError: If calibrate() has not been called.
     """
-    if self.initializers is None:
+    if self.initializers is None or self.total_count_mechanism is None:
       raise ValueError('Must call calibrate() before accessing dp_event.')
     events = [init.dp_event for init in self.initializers.values()]
+    events.append(self.total_count_mechanism.dp_event)
     events.append(self.discrete_mechanism.dp_event)
     return dp_accounting.ComposedDpEvent(events)
 
@@ -320,7 +333,7 @@ class TabularSynthesizer(primitives.DPMechanism):
       ValueError: If calibrate() has not been called or if required columns are
         missing from the input data.
     """
-    if self.initializers is None:
+    if self.initializers is None or self.total_count_mechanism is None:
       raise ValueError('Must call calibrate() before running the mechanism.')
     for col in self.domains:
       if col not in data.columns:
@@ -329,15 +342,22 @@ class TabularSynthesizer(primitives.DPMechanism):
         )
 
     # Phase 1: Per-column initialization.
-    col_results: dict[str, initialization.ColumnMeasurement] = {}
+    # Measure total count first, then run per-column initializers.
+    any_col = next(iter(self.domains))
+    total = max(1.0, self.total_count_mechanism(rng, data[any_col].values))
+
+    results: dict[str, initialization.ColumnMeasurement] = {}
     for col, init in self.initializers.items():
-      col_results[col] = init(rng, data[col].values)
+      if isinstance(init, initialization.NumericalInitializer):
+        results[col] = init(rng, data[col].values, estimated_total=total)
+      else:
+        results[col] = init(rng, data[col].values)
 
     # Phase 2: Encode data to discrete domain.
     discrete_domains = {}
     discrete_data = {}
     one_way_measurements = []
-    for col, result in col_results.items():
+    for col, result in results.items():
       discrete_domains[col] = result.categorical_attribute.size
       if result.bin_edges is not None:
         discrete_data[col] = vtx.discretize(
@@ -368,7 +388,7 @@ class TabularSynthesizer(primitives.DPMechanism):
 
     # Phase 4: Decode synthetic data back to original domain.
     synthetic_columns = {}
-    for col, result in col_results.items():
+    for col, result in results.items():
       col_data = synthetic_data.df[col].values
       if result.bin_edges is not None:
         synthetic_columns[col] = vtx.undiscretize(
