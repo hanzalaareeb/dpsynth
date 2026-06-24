@@ -272,6 +272,52 @@ class SelectPartitionsGaussianThresholdingTest(absltest.TestCase):
     )
     self.assertTrue(all(isinstance(p, str) for p in selected))
 
+  def test_min_count_filters_low_count_partitions(self):
+    # Partition 1 has count 50, partition 2 has count 3.
+    data = np.array([1] * 50 + [2] * 3)
+    selected, _, _ = primitives.select_partitions_gaussian_thresholding(
+        self.rng, data, gdp_budget=10.0, delta=1e-5, min_count=5
+    )
+    self.assertIn(1, selected)
+    self.assertNotIn(2, selected)
+
+  def test_min_count_one_matches_default(self):
+    data = np.array([1] * 50 + [2] * 5)
+    rng1 = np.random.default_rng(42)
+    rng2 = np.random.default_rng(42)
+    result1 = primitives.select_partitions_gaussian_thresholding(
+        rng1, data, gdp_budget=10.0, delta=1e-5
+    )
+    result2 = primitives.select_partitions_gaussian_thresholding(
+        rng2, data, gdp_budget=10.0, delta=1e-5, min_count=1
+    )
+    np.testing.assert_array_equal(result1[0], result2[0])
+    np.testing.assert_array_equal(result1[1], result2[1])
+
+  def test_min_count_all_filtered_returns_empty(self):
+    data = np.array([1, 2, 3])
+    selected, counts, _ = primitives.select_partitions_gaussian_thresholding(
+        self.rng, data, gdp_budget=10.0, delta=1e-5, min_count=5
+    )
+    self.assertEmpty(selected)
+    self.assertEmpty(counts)
+
+  def test_min_count_zero_raises(self):
+    data = np.array([1, 2, 3])
+    with self.assertRaises(ValueError):
+      primitives.select_partitions_gaussian_thresholding(
+          self.rng, data, gdp_budget=1.0, delta=1e-5, min_count=0
+      )
+
+  def test_min_count_increases_threshold(self):
+    # With very high budget (no noise), threshold is approximately min_count.
+    # Partitions with count exactly at min_count should pass.
+    data = np.array([1] * 10 + [2] * 10)
+    selected, _, _ = primitives.select_partitions_gaussian_thresholding(
+        self.rng, data, gdp_budget=np.inf, delta=0.1, min_count=10
+    )
+    self.assertCountEqual(selected, [1, 2])
+
 
 class GaussianHistogramTest(absltest.TestCase):
 

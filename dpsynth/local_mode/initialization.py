@@ -213,11 +213,13 @@ class OpenSetCategoricalInitializer(primitives.DPMechanism):
     name: Attribute name used as the clique key in the measurement.
     attribute: The OpenSetCategoricalAttribute specifying the default value.
     delta: Failure probability for the partition selection threshold.
+    min_count: Minimum true count for a partition to be discovered.
   """
 
   name: str
   attribute: domain.OpenSetCategoricalAttribute
   delta: float
+  min_count: int = 1
   mechanism: primitives.DPPartitionSelection | None = dataclasses.field(
       default=None, repr=False
   )
@@ -226,6 +228,7 @@ class OpenSetCategoricalInitializer(primitives.DPMechanism):
     """Returns a copy calibrated to the given zCDP budget."""
     mechanism = primitives.DPPartitionSelection(
         delta=self.delta,
+        min_count=self.min_count,
     ).calibrate(zcdp_rho=zcdp_rho)
     return dataclasses.replace(self, mechanism=mechanism)
 

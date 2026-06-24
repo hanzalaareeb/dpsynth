@@ -311,6 +311,7 @@ def select_partitions_gaussian_thresholding(
     data: np.ndarray,
     gdp_budget: float,
     delta: float,
+    min_count: int = 1,
 ) -> tuple[np.ndarray, np.ndarray, float]:
   """Selects partitions using Gaussian Thresholding (Weighted Gaussian).
 
@@ -324,8 +325,16 @@ def select_partitions_gaussian_thresholding(
 
   Under item-level DP each record is treated as a distinct user contributing
   to exactly one partition, so the histogram has L2 sensitivity 1.  The
-  threshold is T = 1 + sigma * Phi^{-1}(1 - delta), following the paper's
-  formula with max_part = 1.
+  threshold is T = min_count + sigma * Phi^{-1}(1 - delta), following the
+  paper's formula with max_part = 1 and a shift of (min_count - 1) to
+  account for the minimum count guarantee.
+
+  When ``min_count > 1``, partitions with true count below ``min_count``
+  are pre-filtered and the threshold shifts up accordingly. The privacy
+  guarantee is preserved: partitions where both neighboring datasets are
+  above ``min_count`` are covered by the Gaussian mechanism, and the
+  boundary case (one dataset at ``min_count - 1``, the other at
+  ``min_count``) is covered by the same additive delta.
 
   Args:
     rng: A numpy random number generator.
@@ -333,6 +342,8 @@ def select_partitions_gaussian_thresholding(
     gdp_budget: Privacy budget in terms of squared Gaussian DP mu parameter
       (gdp_budget = mu^2 = 1 / sigma^2).
     delta: Failure probability (false positive bound per empty partition).
+    min_count: Minimum true count for a partition to be eligible. Partitions
+      with fewer occurrences in the data are never returned. Must be >= 1.
 
   Returns:
     A tuple containing:
@@ -344,6 +355,8 @@ def select_partitions_gaussian_thresholding(
   """
   if gdp_budget <= 0 or delta <= 0:
     raise ValueError(f'{gdp_budget=} and {delta=} must be positive.')
+  if min_count < 1:
+    raise ValueError(f'{min_count=} must be >= 1.')
 
   sigma = 1.0 / np.sqrt(gdp_budget)
 
@@ -351,12 +364,20 @@ def select_partitions_gaussian_thresholding(
     return np.empty(0, dtype=data.dtype), np.empty(0, dtype=float), sigma
 
   unique_parts, counts = np.unique(data, return_counts=True)
+
+  # Filter partitions below the minimum count before adding noise.
+  above_min = counts >= min_count
+  unique_parts, counts = unique_parts[above_min], counts[above_min]
+  if unique_parts.size == 0:
+    return np.empty(0, dtype=data.dtype), np.empty(0, dtype=float), sigma
+
   noisy_counts = counts + rng.normal(scale=sigma, size=counts.size)
 
-  # Threshold: ensures that an empty partition (true count 0) passes with
-  # probability at most delta.  For max_part=1 this simplifies to:
-  #   T = 1/sqrt(1) + sigma * Phi^{-1}(1 - delta) = 1 + sigma * ppf(1-delta)
-  threshold = 1.0 + sigma * scipy.stats.norm.ppf(1.0 - delta)
+  # Threshold shifted by (min_count - 1) relative to the base formula.
+  # Base: T = 1 + sigma * ppf(1 - delta) bounds Pr[N(0, sigma^2) >= T] <= delta.
+  # With min_count, worst-case non-eligible count is (min_count - 1), so
+  # T' = min_count + sigma * ppf(1 - delta).
+  threshold = float(min_count) + sigma * scipy.stats.norm.ppf(1.0 - delta)
   passed = noisy_counts >= threshold
 
   return unique_parts[passed], noisy_counts[passed], sigma
@@ -630,10 +651,12 @@ class DPPartitionSelection(DPMechanism):
 
   Attributes:
     delta: Failure probability for the thresholding step.
+    min_count: Minimum true count for a partition to be returned.
     sigma: Gaussian noise standard deviation. Set directly or via ``calibrate``.
   """
 
   delta: float
+  min_count: int = 1
   sigma: float | None = None
 
   def calibrate(self, *, zcdp_rho: float) -> DPPartitionSelection:
@@ -652,20 +675,12 @@ class DPPartitionSelection(DPMechanism):
   def __call__(
       self, rng: np.random.Generator, data: np.ndarray
   ) -> PartitionSelectionResult:
-    """Runs partition selection on integer-encoded partition IDs.
-
-    Args:
-      rng: A numpy random number generator.
-      data: 1D array of integer partition IDs.
-
-    Returns:
-      A ``PartitionSelectionResult`` with selected partitions and noisy counts.
-    """
+    """Runs partition selection on integer-encoded partition IDs."""
     if self.sigma is None:
       raise ValueError(_UNCALIBRATED_MSG.format(param='sigma'))
     gdp_budget = np.inf if self.sigma == 0.0 else 1.0 / (self.sigma**2)
     parts, counts, _ = select_partitions_gaussian_thresholding(
-        rng, data, gdp_budget, self.delta
+        rng, data, gdp_budget, self.delta, min_count=self.min_count
     )
     return PartitionSelectionResult(
         selected_partitions=parts, estimated_counts=counts
