@@ -114,8 +114,6 @@ class SWIFTMechanism(primitives.DPMechanism):
       raise ValueError('Must call calibrate() before using the mechanism.')
 
     logging.info('[SWIFT] Starting Mechanism.')
-    constraints = initial_potentials is not None
-    marginal_oracle = common.default_oracle(self.marginal_oracle, constraints)
 
     #########################################################################
     # Compile workload into candidate measurements, and precompute answers. #
@@ -145,13 +143,15 @@ class SWIFTMechanism(primitives.DPMechanism):
     if potentials is not None:
       potentials = potentials.expand([m.clique for m in measurements])
 
-    model = mbi.estimation.mirror_descent(
+    model = mbi.estimation.MirrorDescent(
+        marginal_oracle=self.marginal_oracle,
+    ).estimate(
         domain,
         measurements,
         iters=self.pgm_iters,
         potentials=potentials,
-        marginal_oracle=marginal_oracle,
     )
+    assert isinstance(model, mbi.MarkovRandomField)
     logging.info('[SWIFT] Estimated initial model.')
 
     ###########################################
@@ -187,12 +187,13 @@ class SWIFTMechanism(primitives.DPMechanism):
     )
 
     callback_fn = mbi.callbacks.default(measurements)
-    model = mbi.estimation.mirror_descent(
+    model = mbi.estimation.MirrorDescent(
+        marginal_oracle=closed_oracle,
+    ).estimate(
         domain,
         measurements,
         iters=self.pgm_iters,
         potentials=potentials,
-        marginal_oracle=closed_oracle,
         callback_fn=callback_fn,
     )
     logging.info('[SWIFT] Estimated final model.')

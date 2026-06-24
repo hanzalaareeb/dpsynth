@@ -38,7 +38,7 @@ class DiscreteMechanismResult:
     diagnostics: Optional mechanism-specific diagnostic information.
   """
 
-  model: mbi.MarkovRandomField
+  model: mbi.Model
   measurements: list[mbi.LinearMeasurement] = dataclasses.field(
       default_factory=list
   )
@@ -194,17 +194,6 @@ def get_domain_compression_transformations(
         compressed_measurement(measurement, size, transform_fn)
     )
   return mbi.Domain.fromdict(sizes), new_measurements, column_transforms
-
-
-def default_oracle(
-    oracle: mbi.MarginalOracle | None, constraints: bool
-) -> mbi.MarginalOracle:
-  if oracle is None:
-    if constraints:
-      return mbi.marginal_oracles.message_passing_stable
-    else:
-      return mbi.marginal_oracles.message_passing_fast
-  return oracle
 
 
 def downward_closure(

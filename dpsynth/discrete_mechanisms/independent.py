@@ -64,8 +64,6 @@ class IndependentMechanism(primitives.DPMechanism):
     """Generate synthetic data via the independent mechanism."""
     if self.gdp_sigma is None:
       raise ValueError('Must call calibrate() before using the mechanism.')
-    constraints = initial_potentials is not None
-    marginal_oracle = common.default_oracle(self.marginal_oracle, constraints)
 
     # Split end-to-end gdp_sigma across the d one-way marginals:
     # per-query sigma = gdp_sigma * sqrt(d).
@@ -87,12 +85,13 @@ class IndependentMechanism(primitives.DPMechanism):
     if potentials is not None:
       potentials = potentials.expand([m.clique for m in measurements])
 
-    model = mbi.estimation.mirror_descent(
+    model = mbi.estimation.MirrorDescent(
+        marginal_oracle=self.marginal_oracle,
+    ).estimate(
         data.domain,
         measurements,
         iters=self.pgm_iters,
         potentials=potentials,
-        marginal_oracle=marginal_oracle,
     )
     return common.DiscreteMechanismResult(
         model=model, measurements=measurements

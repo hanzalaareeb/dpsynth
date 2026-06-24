@@ -35,7 +35,7 @@ def fit_model(
     domain = descriptor.compressed_domain
     marginals = list(descriptor.compressed_measurements())
     # This is not always correct for independent mechanism.
-    return mbi.estimation.mirror_descent(domain, marginals, iters=100)
+    return mbi.estimation.MirrorDescent().estimate(domain, marginals, iters=100)
 
   return backend.map(
       descriptor,

@@ -335,14 +335,14 @@ def _create_new_model(
     model: mbi.MarkovRandomField,
     measurements: list[mbi.LinearMeasurement],
     pgm_iters: int,
-) -> mbi.MarkovRandomField:
+) -> mbi.Model:
   """Adds measurements to the model and running mirror descent."""
   measurements = copy.copy(measurements)
   n_measurement_in_model = len(model.potentials.cliques)
   new_measurements = measurements[n_measurement_in_model:]
   new_measured_cliques = list(set(m.clique for m in new_measurements))
   warm_start = model.potentials.expand(new_measured_cliques)
-  new_model = mbi.estimation.mirror_descent(
+  new_model = mbi.estimation.MirrorDescent().estimate(
       model.domain,
       measurements,
       potentials=warm_start,

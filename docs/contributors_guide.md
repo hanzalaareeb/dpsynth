@@ -219,12 +219,14 @@ potentials.
 ### 3. Mirror Descent Optimization & Private-PGM Solver
 
 The core PGM inference solver resides
-in [`mbi.estimation.mirror_descent`](https://github.com/ryan112358/mbi/blob/master/mbi/estimation.py).
+in [`mbi.estimation.MirrorDescent`](https://github.com/ryan112358/mbi/blob/master/mbi/estimation.py).
 
 * **The API**:
 
 ```python
-  model = mbi.estimation.mirror_descent(
+  model = mbi.estimation.MirrorDescent(
+      marginal_oracle=...,  # optional
+  ).estimate(
       domain: mbi.Domain,
       linear_measurements: list[mbi.LinearMeasurement],
       iters: int = 2500

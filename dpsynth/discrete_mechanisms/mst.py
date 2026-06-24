@@ -124,7 +124,7 @@ def _select_two_way_marginal_queries(
     A list of two-way marginal queries over highly correlated attributes.
   """
 
-  independent_model = mbi.estimation.mirror_descent(
+  independent_model = mbi.estimation.MirrorDescent().estimate(
       data.domain, one_way_measurements, iters=2500
   )
 
@@ -220,8 +220,6 @@ class MSTMechanism(primitives.DPMechanism):
     if self.zcdp_rho is None:
       raise ValueError('Must call calibrate() before using the mechanism.')
     logging.info('[MST]: Starting MST mechanism.')
-    constraints = initial_potentials is not None
-    marginal_oracle = common.default_oracle(self.marginal_oracle, constraints)
     budget_remaining = self.zcdp_rho
 
     if initial_measurements is None:
@@ -264,13 +262,14 @@ class MSTMechanism(primitives.DPMechanism):
         data.domain, [m.clique for m in all_measurements]
     )
     logging.info('[MST]: Model size: %d MB', model_size)
-    model = mbi.estimation.mirror_descent(
+    model = mbi.estimation.MirrorDescent(
+        marginal_oracle=self.marginal_oracle,
+    ).estimate(
         data.domain,
         all_measurements,
         iters=self.pgm_iters,
         potentials=potentials,
         callback_fn=mbi.callbacks.default(all_measurements),
-        marginal_oracle=marginal_oracle,
     )
     logging.info('[MST]: Fit distribution to the noisy measurements.')
     return common.DiscreteMechanismResult(

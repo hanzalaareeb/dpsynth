@@ -22,6 +22,10 @@ import numpy as np
 
 class MSTTest(absltest.TestCase):
 
+  def setUp(self):
+    super().setUp()
+    np.random.seed(0)
+
   def test_dp_maximum_spanning_tree_infinite_rho(self):
     weights = {
         ('A', 'B'): 1.0,

@@ -67,8 +67,6 @@ class DirectMechanism(primitives.DPMechanism):
     """Generate synthetic data using user specified two way marginals."""
     if self.gdp_sigma is None:
       raise ValueError('Must call calibrate() before using the mechanism.')
-    constraints = initial_potentials is not None
-    marginal_oracle = common.default_oracle(self.marginal_oracle, constraints)
 
     # measure_marginals_with_noise splits gdp_sigma across the queries
     # internally via weight normalization.
@@ -81,12 +79,13 @@ class DirectMechanism(primitives.DPMechanism):
       all_measurements = new_measurements
 
     # fit a distribution to the noisy measurements
-    model = mbi.estimation.mirror_descent(
+    model = mbi.estimation.MirrorDescent(
+        marginal_oracle=self.marginal_oracle,
+    ).estimate(
         data.domain,
         all_measurements,
         iters=self.pgm_iters,
         potentials=initial_potentials,
-        marginal_oracle=marginal_oracle,
     )
     return common.DiscreteMechanismResult(
         model=model, measurements=all_measurements

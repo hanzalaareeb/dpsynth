@@ -40,7 +40,7 @@ def fit_model(
       linear_measurements: list[mbi.LinearMeasurement],
       domain: mbi.Domain,
   ):
-    return mbi.estimation.mirror_descent(
+    return mbi.estimation.MirrorDescent().estimate(
         domain, linear_measurements, iters=2500
     )
 

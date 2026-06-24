@@ -26,7 +26,6 @@ from dpsynth.discrete_mechanisms import common
 from dpsynth.local_mode import primitives
 import jax.numpy as jnp
 import mbi
-import mbi.estimation
 import mbi.junction_tree
 import numpy as np
 
@@ -171,8 +170,6 @@ class AIMMechanism(primitives.DPMechanism):
       raise ValueError('Must call calibrate() before using the mechanism.')
 
     logging.info('[AIM]: Starting Mechanism.')
-    constraints = initial_potentials is not None
-    marginal_oracle = common.default_oracle(self.marginal_oracle, constraints)
 
     zcdp_rho = self.zcdp_rho
 
@@ -204,13 +201,15 @@ class AIMMechanism(primitives.DPMechanism):
     potentials = initial_potentials
     if potentials is not None:
       potentials = potentials.expand([m.clique for m in measurements])
-    model = mbi.estimation.mirror_descent(
+    model = mbi.estimation.MirrorDescent(
+        marginal_oracle=self.marginal_oracle,
+    ).estimate(
         data.domain,
         measurements,
         iters=self.pgm_iters,
         potentials=potentials,
-        marginal_oracle=marginal_oracle,
     )
+    assert isinstance(model, mbi.MarkovRandomField)
 
     t = 0
     while not terminate:
@@ -264,14 +263,16 @@ class AIMMechanism(primitives.DPMechanism):
       callback_fn = mbi.callbacks.default(measurements)
       measured_cliques = list(set(m.clique for m in measurements))
       warm_start = model.potentials.expand(measured_cliques)
-      model = mbi.estimation.mirror_descent(
+      model = mbi.estimation.MirrorDescent(
+          marginal_oracle=self.marginal_oracle,
+      ).estimate(
           data.domain,
           measurements,
           potentials=warm_start,
           iters=self.pgm_iters,
           callback_fn=callback_fn,
-          marginal_oracle=marginal_oracle,
       )
+      assert isinstance(model, mbi.MarkovRandomField)
       t3 = time.time()
       logging.info('[AIM] Mirror descent took %.2fs', t3 - t2)
 

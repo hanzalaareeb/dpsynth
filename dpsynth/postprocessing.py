@@ -141,7 +141,7 @@ def generate_synthetic_data_from_marginals(
     iters: int = 10000,
     log: bool = False,
     nrows: int | None = None,
-    estimator=mbi.estimation.mirror_descent,
+    estimator: mbi.Estimator | None = None,
     marginal_oracle: mbi.marginal_oracles.MarginalOracle = mbi.marginal_oracles.message_passing_stable,
     exact_marginals: Sequence[pd.DataFrame] | None = None,
     cross_attribute_constraints: Sequence[constraints.Constraint] = (),
@@ -240,10 +240,11 @@ def generate_synthetic_data_from_marginals(
     callback_fn = mbi.callbacks.default(measurements, duck_typed_exact_data)
   else:
     callback_fn = lambda _: None
-  model = estimator(
+  if estimator is None:
+    estimator = mbi.estimation.MirrorDescent(marginal_oracle=marginal_oracle)
+  model = estimator.estimate(
       mbi_domain,
       measurements,
-      marginal_oracle=marginal_oracle,
       potentials=initial_potentials,
       iters=iters,
       callback_fn=callback_fn,

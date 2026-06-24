@@ -166,11 +166,12 @@ def fit_model(
     closed_oracle = functools.partial(
         mbi.marginal_oracles.message_passing_stable, jtree=jtree_obj
     )
-    return mbi.estimation.mirror_descent(
+    return mbi.estimation.MirrorDescent(
+        marginal_oracle=closed_oracle,
+    ).estimate(
         domain_obj,
         measurements_list,
         iters=parameters.pgm_iters,
-        marginal_oracle=closed_oracle,
     )
 
   return backend.map_with_side_inputs(
