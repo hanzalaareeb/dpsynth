@@ -260,7 +260,7 @@ class AIMMechanism(primitives.DPMechanism):
       # Estimate the data distribution using Private-PGM. #
       #####################################################
       t2 = time.time()
-      callback_fn = mbi.callbacks.default(measurements)
+      callback_fn = mbi.callbacks.default(measurements, domain=data.domain)
       measured_cliques = list(set(m.clique for m in measurements))
       warm_start = model.potentials.expand(measured_cliques)
       model = mbi.estimation.MirrorDescent(

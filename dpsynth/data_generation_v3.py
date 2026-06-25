@@ -389,7 +389,7 @@ class TabularSynthesizer(primitives.DPMechanism):
     # Phase 4: Decode synthetic data back to original domain.
     synthetic_columns = {}
     for col, result in results.items():
-      col_data = synthetic_data.df[col].values
+      col_data = synthetic_data.to_dict()[col]
       if result.bin_edges is not None:
         synthetic_columns[col] = vtx.undiscretize(
             col_data, result.bin_edges, self.domains[col], rng=rng

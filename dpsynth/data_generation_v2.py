@@ -55,7 +55,7 @@ def _compress_data(data, one_way_measurements):
       total_measurement.noisy_measurement,
   )
   compressed_data = mbi.Dataset(
-      transformations.apply(data.df, compress_transforms),
+      transformations.apply(pd.DataFrame(data.to_dict()), compress_transforms),
       compressed_domain,
   )
   logging.info('[SynthKit Tabular]: Original domain: %s', data.domain)
@@ -289,7 +289,7 @@ def generate(
   synthetic_columns = {}
   for col in transform_fns:
     synthetic_columns[col] = pd.Series(
-        [transform_fns[col].inverse(x) for x in synthetic_data.df[col]],
+        [transform_fns[col].inverse(x) for x in synthetic_data.to_dict()[col]],
         dtype=data[col].dtype,
     )
   logging.info('[SynthKit Tabular]: Converted data back to original domain.')

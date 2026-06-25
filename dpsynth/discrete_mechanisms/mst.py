@@ -269,7 +269,7 @@ class MSTMechanism(primitives.DPMechanism):
         all_measurements,
         iters=self.pgm_iters,
         potentials=potentials,
-        callback_fn=mbi.callbacks.default(all_measurements),
+        callback_fn=mbi.callbacks.default(all_measurements, domain=data.domain),
     )
     logging.info('[MST]: Fit distribution to the noisy measurements.')
     return common.DiscreteMechanismResult(

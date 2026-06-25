@@ -186,7 +186,7 @@ class SWIFTMechanism(primitives.DPMechanism):
         mbi.marginal_oracles.message_passing_stable, jtree=jtree
     )
 
-    callback_fn = mbi.callbacks.default(measurements)
+    callback_fn = mbi.callbacks.default(measurements, domain=domain)
     model = mbi.estimation.MirrorDescent(
         marginal_oracle=closed_oracle,
     ).estimate(
