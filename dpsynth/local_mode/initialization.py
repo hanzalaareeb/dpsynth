@@ -26,7 +26,6 @@ from dpsynth.local_mode import vectorized_transformations as vtx
 import mbi
 import numpy as np
 
-
 _M = TypeVar('_M')
 
 
@@ -118,50 +117,77 @@ class NumericalInitializer(primitives.DPMechanism):
     Returns:
       A ColumnMeasurement with bin edges and optionally a heuristic measurement.
     """
-    # Dedup: concentrated data can make quantiles return duplicate edges.
     raw_edges = _validate_mechanism(self.mechanism)(rng, data).quantiles
-    raw_edges = np.asarray(raw_edges, dtype=float)
-    if self.attribute.dtype == 'int':
-      # Snap edges to the integer lattice.  Bins are right-closed (left,
-      # right] and discretize uses searchsorted with side='left', so
-      # floor preserves the partition: edge 4.7 → floor 4 gives the
-      # same integer split {≤4} | {≥5} via (…, 4] | (4, …].
-      raw_edges = np.floor(raw_edges)
-    bin_edges, edge_counts = np.unique(raw_edges, return_counts=True)
-    # For integer data with upper=max_value+1, edges can land at max_value
-    # after floor.  Remove such edges and absorb their count into the last
-    # bin's weight so categorical_attribute_from_edges doesn't create a
-    # degenerate (max_value, max_value] tail bin.
-    # At most one edge can equal max_value: DPQuantiles clamps outputs to
-    # [lower, upper), so after floor + unique only the last edge can hit it.
-    max_val = self.attribute.max_value
-    if len(bin_edges) > 0 and bin_edges[-1] >= max_val:
-      tail_count = edge_counts[-1]
-      bin_edges = bin_edges[:-1]
-      edge_counts = edge_counts[:-1]
-      bin_weights = np.append(edge_counts, tail_count + 1)
-    else:
-      bin_weights = np.append(edge_counts, 1)
-    cat_attr = vtx.categorical_attribute_from_edges(bin_edges, self.attribute)
+    return edges_to_column_measurement(
+        raw_edges=raw_edges,
+        attribute=self.attribute,
+        name=self.name,
+        zcdp_rho=self._zcdp_rho,
+        estimated_total=estimated_total,
+    )
 
-    measurement = None
-    if estimated_total is not None:
-      rho = self._zcdp_rho
-      if not self.attribute.clip_to_range:
-        # Prepend zero weight for the OUT_OF_DOMAIN slot at index 0.
-        bin_weights = np.r_[0, bin_weights]
-      # Query is the normalized histogram (probabilities); the noise scale
-      # absorbs the 1/estimated_total factor from dividing counts by n.
-      normalized = bin_weights / bin_weights.sum()
-      stddev = 1.0 / (np.sqrt(rho) * estimated_total)
-      measurement = mbi.LinearMeasurement(
-          normalized,
-          (self.name,),
-          stddev=stddev,
-          query=lambda f: f.normalize(1.0).datavector(),
-      )
 
-    return ColumnMeasurement(cat_attr, bin_edges, measurement=measurement)
+def edges_to_column_measurement(
+    raw_edges,
+    attribute,
+    name,
+    zcdp_rho,
+    estimated_total=None,
+):
+  """Converts raw quantile edges into a ColumnMeasurement.
+
+  Handles integer snapping, edge deduplication, degenerate-bin removal, and
+  categorical attribute construction.  Shared between the data-based
+  ``NumericalInitializer`` and the histogram-based
+  ``HistogramNumericalInitializer``.
+
+  Args:
+    raw_edges: Quantile edge values (unsorted duplicates are fine).
+    attribute: The ``NumericalAttribute`` defining the data domain.
+    name: Attribute name used as the clique key in any measurement.
+    zcdp_rho: Total zCDP rho consumed by the quantile mechanism.
+    estimated_total: If provided, a heuristic one-way measurement is included.
+
+  Returns:
+    A ``ColumnMeasurement`` with bin edges and optionally a measurement.
+  """
+  raw_edges = np.asarray(raw_edges, dtype=float)
+  if attribute.dtype == 'int':
+    # Snap edges to the integer lattice.  Bins are right-closed (left,
+    # right] and discretize uses searchsorted with side='left', so
+    # floor preserves the partition: edge 4.7 → floor 4 gives the
+    # same integer split {≤4} | {≥5} via (…, 4] | (4, …].
+    raw_edges = np.floor(raw_edges)
+  bin_edges, edge_counts = np.unique(raw_edges, return_counts=True)
+  # For integer data with upper=max_value+1, edges can land at max_value
+  # after floor.  Remove such edges and absorb their count into the last
+  # bin's weight so categorical_attribute_from_edges doesn't create a
+  # degenerate (max_value, max_value] tail bin.
+  max_val = attribute.max_value
+  if len(bin_edges) > 0 and bin_edges[-1] >= max_val:
+    tail_count = edge_counts[-1]
+    bin_edges = bin_edges[:-1]
+    edge_counts = edge_counts[:-1]
+    bin_weights = np.append(edge_counts, tail_count + 1)
+  else:
+    bin_weights = np.append(edge_counts, 1)
+  cat_attr = vtx.categorical_attribute_from_edges(bin_edges, attribute)
+
+  measurement = None
+  if estimated_total is not None:
+    if not attribute.clip_to_range:
+      # Prepend zero weight for the OUT_OF_DOMAIN slot at index 0.
+      bin_weights = np.r_[0, bin_weights]
+    normalized = bin_weights / bin_weights.sum()
+    stddev = 1.0 / (np.sqrt(zcdp_rho) * estimated_total)
+    measurement = mbi.LinearMeasurement(
+        normalized,
+        (name,),
+        stddev=stddev,
+        query=lambda f: f.normalize(1.0).datavector(),
+    )
+
+  return ColumnMeasurement(cat_attr, bin_edges, measurement=measurement)
 
 
 @dataclasses.dataclass
