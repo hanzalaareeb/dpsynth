@@ -70,29 +70,22 @@ class NumericalInitializer(primitives.DPMechanism):
   name: str
   num_partitions: int
   attribute: domain.NumericalAttribute
+  grid_size: int = 10_000_000
   mechanism: primitives.DPQuantiles | None = dataclasses.field(
       default=None, repr=False
   )
 
-  def calibrate(self, *, zcdp_rho: float) -> NumericalInitializer:
+  def calibrate(
+      self, *, zcdp_rho: float, epsilon_ratio: float = 2.0
+  ) -> NumericalInitializer:
     """Returns a copy calibrated to the given zCDP budget."""
-    if zcdp_rho <= 0:
-      raise ValueError(f'zcdp_rho must be positive, got {zcdp_rho}.')
     mechanism = primitives.DPQuantiles(
+        num_partitions=self.num_partitions,
         lower=self.attribute.min_value,
         upper=self.attribute.exclusive_max_value,
-        num_partitions=self.num_partitions,
-        # Infer from attribute, not data.dtype: NaN promotes int to float.
-        integer_jitter=self.attribute.dtype == 'int',
-    ).calibrate(zcdp_rho=zcdp_rho)
+        grid_size=self.grid_size,
+    ).calibrate(zcdp_rho=zcdp_rho, epsilon_ratio=epsilon_ratio)
     return dataclasses.replace(self, mechanism=mechanism)
-
-  @property
-  def _zcdp_rho(self) -> float:
-    """Total zCDP rho, derived as sum(eps_i^2 / 8) over composed events."""
-    event = self.dp_event  # raises if not calibrated
-    assert isinstance(event, dp_accounting.ComposedDpEvent)
-    return sum(e.epsilon**2 / 8.0 for e in event.events)
 
   @property
   def dp_event(self) -> dp_accounting.DpEvent:
@@ -117,12 +110,31 @@ class NumericalInitializer(primitives.DPMechanism):
     Returns:
       A ColumnMeasurement with bin edges and optionally a heuristic measurement.
     """
-    raw_edges = _validate_mechanism(self.mechanism)(rng, data).quantiles
+    _validate_mechanism(self.mechanism)
+    lower = self.attribute.min_value
+    upper = self.attribute.exclusive_max_value
+    finite_data = data[np.isfinite(data.astype(float))]
+    clamped = np.clip(finite_data, lower, upper)
+    delta = (upper - lower) / (self.grid_size - 1)
+    indices = np.round((clamped - lower) / delta).astype(np.int64)
+    counts = np.bincount(indices, minlength=self.grid_size)
+    return self.from_summary(rng, counts, estimated_total=estimated_total)
+
+  def from_summary(
+      self,
+      rng: np.random.Generator,
+      counts: np.ndarray,
+      *,
+      estimated_total: float | None = None,
+  ) -> ColumnMeasurement:
+    """Returns a ColumnMeasurement from pre-aggregated histogram counts."""
+    mechanism = _validate_mechanism(self.mechanism)
+    raw_edges = mechanism(rng, counts)
     return edges_to_column_measurement(
         raw_edges=raw_edges,
         attribute=self.attribute,
         name=self.name,
-        zcdp_rho=self._zcdp_rho,
+        zcdp_rho=mechanism.zcdp_rho,
         estimated_total=estimated_total,
     )
 
@@ -224,11 +236,18 @@ class CategoricalInitializer(primitives.DPMechanism):
       self, rng: np.random.Generator, data: np.ndarray
   ) -> ColumnMeasurement:
     """Returns a ColumnMeasurement with the noisy histogram."""
-    mechanism = _validate_mechanism(self.mechanism)
     encoded = vtx.discrete_encode(data, self.attribute)
-    noisy_counts = mechanism(rng, encoded).counts
+    counts = np.bincount(encoded, minlength=self.attribute.size)
+    return self.from_summary(rng, counts)
+
+  def from_summary(
+      self, rng: np.random.Generator, counts: np.ndarray
+  ) -> ColumnMeasurement:
+    """Returns a ColumnMeasurement from pre-aggregated counts."""
+    mechanism = _validate_mechanism(self.mechanism)
+    result = mechanism(rng, counts)
     measurement = mbi.LinearMeasurement(
-        noisy_counts, (self.name,), stddev=mechanism.sigma
+        result.counts, (self.name,), stddev=mechanism.sigma
     )
     return ColumnMeasurement(self.attribute, measurement=measurement)
 
@@ -275,10 +294,19 @@ class OpenSetCategoricalInitializer(primitives.DPMechanism):
       self, rng: np.random.Generator, data: np.ndarray
   ) -> ColumnMeasurement:
     """Returns a differentially private measurement of the given data."""
-    mechanism = _validate_mechanism(self.mechanism)
-    # Map raw values to integer partition IDs for thresholding.
     unique_values, inverse = np.unique(data, return_inverse=True)
-    result = mechanism(rng, inverse)
+    counts = np.bincount(inverse)
+    return self.from_summary(rng, unique_values, counts)
+
+  def from_summary(
+      self,
+      rng: np.random.Generator,
+      unique_values: np.ndarray,
+      counts: np.ndarray,
+  ) -> ColumnMeasurement:
+    """Returns a ColumnMeasurement from pre-aggregated value counts."""
+    mechanism = _validate_mechanism(self.mechanism)
+    result = mechanism.from_summary(rng, counts)
     selected_values = list(unique_values[result.selected_partitions])
 
     # Build the discovered domain: default first, then selected values.
