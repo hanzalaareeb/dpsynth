@@ -23,52 +23,56 @@ loaded via Pandas or NumPy).
 
 The [common.py](common.py) module provides essential logic used project-wide:
 
-*   **Domain Compression**: Implements the logic to calculate DP one-way
-    marginals and merge rare values into an "Other" category. This is heavily
-    relied upon by the `DatasetDescriptor.compress()` logic and distributed
-    pipelines.
-*   **DP Primitives**: Implements the Exponential mechanism and Gaussian
-    mechanism logic used by various components.
+- **Domain Compression**: Implements the logic to calculate DP one-way
+  marginals and merge rare values into an "Other" category. This is heavily
+  relied upon by the `DatasetDescriptor.compress()` logic and distributed
+  pipelines.
+- **DP Primitives**: Implements the Exponential mechanism and Gaussian
+  mechanism logic used by various components.
 
 ### 3. Integration with `mbi`
 
 All mechanisms in this package are built on top of the `mbi` library:
 
-*   **Inputs**: Mechanisms consume `mbi.Projectable` objects (discrete data).
-*   **Outputs**: Mechanisms produce `mbi.MarkovRandomField` objects, which model
-    the approximated distribution and are used to sample synthetic records.
+- **Inputs**: Mechanisms consume `mbi.Projectable` objects (discrete data).
+- **Outputs**: Mechanisms produce `mbi.MarkovRandomField` objects, which model
+  the approximated distribution and are used to sample synthetic records.
 
 ### 4. Privacy Accounting
 
-The [accounting.py](accounting.py) module serves as the bridge between
-high-level user privacy parameters (epsilon, delta) and the internal `sigma`
-values required by the Gaussian mechanisms.
+The [accounting.py](accounting.py) module handles the translation layer between human-readable privacy parameters and internal scale vectors required by the noise generation subsystems:
+
+- **Approximate DP to zCDP:** Translates high-level user parameters $(\epsilon, \delta)$ into a total zero-Concentrated Differential Privacy budget ($\rho$) using `zcdp_rho`.
+
+* **Budget Composition & Allocations:** Tracks privacy expenditure across iterative exacution rounds (e.g., inside [aim.py](aim.py)), converting a round's allocated budget (`rho_per_round`) directly into a standard deviation ($\sigma$) via `zcdp_gaussian_sigma` where $\rho = \frac{0.5}{\sigma^2}$.
+
+* **Alternative Accounting Frameworks:** Provides direct calculation layers for Gaussian Differential Privacy ($\mu$-GDP via `aim_gdp.py` and `gdp_gaussian_sigma`) and parameter mapping bounds for the Exponential mechanism (`zcdp_exponential_eps`).
 
 ## Relationship to Other Packages
 
-*   **[dataset_descriptors/](../dataset_descriptors/)**: Provides the
-    `DatasetDescriptor.encode()` method which produces the discrete
-    integer-encoded data that these mechanisms require.
-*   **[pipeline_transformations/](../pipeline_transformations/)**: Contains
-    distributed, production-scale implementations of these same algorithms
-    (using Apache Beam). Many pipeline transformations reuse the mathematical
-    utilities defined here.
+- **[dataset_descriptors/](../dataset_descriptors/)**: Provides the
+  `DatasetDescriptor.encode()` method which produces the discrete
+  integer-encoded data that these mechanisms require.
+- **[pipeline_transformations/](../pipeline_transformations/)**: Contains
+  distributed, production-scale implementations of these same algorithms
+  (using Apache Beam). Many pipeline transformations reuse the mathematical
+  utilities defined here.
 
 ## Mechanisms Implemented
 
-*   **Adaptive+Iterative Mechanism (AIM)** (`aim.py`, `aim_gdp.py`): An
-    MWEM-style algorithm that iteratively improves the estimation of the data
-    distribution.
-*   **Maximum Spanning Tree (MST)** (`mst.py`): Computes an approximate maximum
-    spanning tree to model pairwise correlations privately.
-*   **Direct Mechanism** (`direct.py`): Measures user-prespecified two-way
-    marginals and fits a distribution via mirror descent.
-*   **Independent Mechanism** (`independent.py`): A baseline approach that
-    models all attributes as independent.
+- **Adaptive+Iterative Mechanism (AIM)** (`aim.py`, `aim_gdp.py`): An
+  MWEM-style algorithm that iteratively improves the estimation of the data
+  distribution.
+- **Maximum Spanning Tree (MST)** (`mst.py`): Computes an approximate maximum
+  spanning tree to model pairwise correlations privately.
+- **Direct Mechanism** (`direct.py`): Measures user-prespecified two-way
+  marginals and fits a distribution via mirror descent.
+- **Independent Mechanism** (`independent.py`): A baseline approach that
+  models all attributes as independent.
 
 ## Utilities and Privacy Accounting
 
-*   **`common.py`**: Shared logic for exponential mechanisms, measurement
-    noising, and domain compression.
-*   **`accounting.py`**: Translation layer for DP budget accounting (zCDP, GDP,
-    Approximate DP).
+- **`common.py`**: Shared logic for exponential mechanisms, measurement
+  noising, and domain compression.
+- **`accounting.py`**: Translation layer for DP budget accounting (zCDP, GDP,
+  Approximate DP).
