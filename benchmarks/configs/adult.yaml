@@ -1,0 +1,109 @@
+schema_version: 1
+
+dataset:
+  name: adult
+  manifest: benchmarks/datasets/adult.json
+  train_path: benchmarks/data/adult/adult_train.csv
+  test_path: benchmarks/data/adult/adult_test.csv
+  metadata_path: benchmarks/data/adult/adult_metadata.json
+  domain_path: benchmarks/configs/adult_domain.yaml
+
+  columns:
+    - age
+    - workclass
+    - fnlwgt
+    - education
+    - education-num
+    - marital-status
+    - occupation
+    - relationship
+    - race
+    - sex
+    - capital-gain
+    - capital-loss
+    - hours-per-week
+    - native-country
+    - income
+
+  categorical_columns:
+    - workclass
+    - education
+    - marital-status
+    - occupation
+    - relationship
+    - race
+    - sex
+    - native-country
+
+  numeric_columns:
+    - age
+    - fnlwgt
+    - education-num
+    - capital-gain
+    - capital-loss
+    - hours-per-week
+
+  label_column: income
+  canonical_numeric_type: integer
+
+public_side_information:
+  categorical_domains: true
+  numerical_bounds: true
+
+  label_distribution:
+    assumption: public
+    label_order:
+      - "<=50K"
+      - ">50K"
+    counts:
+      - 25255
+      - 8079
+    fractions:
+      - 0.757634847303054
+      - 0.24236515269694606
+
+privacy:
+  adjacency: add_remove_one
+  epsilon: 1.0
+
+  delta:
+    rule: inverse_n_log_n
+    n: 33334
+    value: 2.8805876962760987e-06
+
+experiment:
+  synthetic_rows: 1000
+  seeds:
+    - 0
+
+dpsynth:
+  mechanism: aim
+
+dpsda:
+  repository: microsoft/DPSDA
+  commit: 9078c67995499e6769113780200bbf1d788d3d60
+
+  # Match the upstream Adult metadata internally, then restore
+  # the shared integer schema before evaluation.
+  internal_numeric_type: float
+  output_postprocessing: round_and_clip_to_public_integer_domain
+
+  num_iterations: 30
+  num_samples_schedule_length: 30
+
+  # DPSDA uses len(num_samples_schedule) - 1 private rounds.
+  private_histogram_rounds: 29
+
+  mutation_rate_initial: 0.5
+  mutation_rate_final: 0.01
+  mutation_decay_type: polynomial
+
+  histogram:
+    type: nearest_neighbors
+    mode: L2
+    lookahead_degree: 0
+    backend: torch
+
+  gamma: 0.2
+  sampling_iterations: 5
+  variation_degree: 3

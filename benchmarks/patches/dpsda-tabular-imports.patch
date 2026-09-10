@@ -1,0 +1,68 @@
+diff --git a/pe/api/__init__.py b/pe/api/__init__.py
+index f261d01..2fa56ba 100644
+--- a/pe/api/__init__.py
++++ b/pe/api/__init__.py
+@@ -1,4 +1,2 @@
+ from .api import API
+-from .image import ImprovedDiffusion, ImprovedDiffusion270M, StableDiffusion, DrawText, Avatar, NearestImage
+-from .text import LLMAugPE
+ from .tabular import TabularAPI
+@@ -7,9 +5,2 @@ __all__ = [
+     "API",
+-    "ImprovedDiffusion",
+-    "ImprovedDiffusion270M",
+-    "LLMAugPE",
+-    "StableDiffusion",
+-    "DrawText",
+-    "Avatar",
+-    "NearestImage",
+     "TabularAPI",
+diff --git a/pe/callback/__init__.py b/pe/callback/__init__.py
+index 94403c4..2714671 100644
+--- a/pe/callback/__init__.py
++++ b/pe/callback/__init__.py
+@@ -1,13 +1,9 @@
+ from .callback import Callback
+-from .common import SaveCheckpoints
+-from .common import ComputeFID
+-from .common import ComputePrecisionRecall
+-from .image import SampleImages
+-from .image import SaveAllImages
+-from .image import DPImageBenchClassifyImages
+-from .text import SaveTextToCSV
+-from .tabular import TabClassifier
+-from .tabular import SaveTabToCSV
+-from .tabular import ComputeTVD
+-from .tabular import ComputeWSD
++from .common.save_checkpoints import SaveCheckpoints
++from .tabular import (
++    TabClassifier,
++    SaveTabToCSV,
++    ComputeTVD,
++    ComputeWSD,
++)
+ 
+@@ -16,8 +12,2 @@ __all__ = [
+     "SaveCheckpoints",
+-    "ComputeFID",
+-    "ComputePrecisionRecall",
+-    "SampleImages",
+-    "SaveAllImages",
+-    "DPImageBenchClassifyImages",
+-    "SaveTextToCSV",
+     "TabClassifier",
+diff --git a/pe/embedding/__init__.py b/pe/embedding/__init__.py
+index 9de619d..c8d4c0a 100644
+--- a/pe/embedding/__init__.py
++++ b/pe/embedding/__init__.py
+@@ -1,9 +1,4 @@
+ from .embedding import Embedding
+-from .image import Inception
+-from .image import FLDInception
+-from .image import CLIP
+-from .image import RawPixel
+-from .text import SentenceTransformer
+ from .tabular import TabularEmbedding
+ 
+-__all__ = ["Embedding", "Inception", "FLDInception", "CLIP", "RawPixel", "SentenceTransformer", "TabularEmbedding"]
++__all__ = ["Embedding", "TabularEmbedding"]

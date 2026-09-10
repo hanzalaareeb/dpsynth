@@ -1,0 +1,43 @@
+{
+  "name": "adult",
+  "source_repository": "https://github.com/toan-vt/cloud-data-store",
+  "source_commit": "f3fad42c2793ba11b1c4110658d8df8e3693ce84",
+  "files": {
+    "adult_train.csv": {
+      "url": "https://raw.githubusercontent.com/toan-vt/cloud-data-store/f3fad42c2793ba11b1c4110658d8df8e3693ce84/tabular/real/adult/adult_train.csv",
+      "sha256": "e38f7e29c71febe81f9fcdd0974da38e048d0c5b72911c77eb4dbfa3c25878dc",
+      "bytes": 3615371,
+      "rows": 33334
+    },
+    "adult_test.csv": {
+      "url": "https://raw.githubusercontent.com/toan-vt/cloud-data-store/f3fad42c2793ba11b1c4110658d8df8e3693ce84/tabular/real/adult/adult_test.csv",
+      "sha256": "1187d70be987e11f8f2eb285bb72cef988f0bf9854fbdd99de190b65e776afc6",
+      "bytes": 774493,
+      "rows": 7144
+    },
+    "adult_metadata.json": {
+      "url": "https://raw.githubusercontent.com/toan-vt/cloud-data-store/f3fad42c2793ba11b1c4110658d8df8e3693ce84/tabular/real/adult/adult_metadata.json",
+      "sha256": "7f0e4c81a958c9f1b6d20a7bbf519bc05e822fb99e7b5dc1c5bebc004327704f",
+      "bytes": 276
+    }
+  },
+  "columns": [
+    "age",
+    "workclass",
+    "fnlwgt",
+    "education",
+    "education-num",
+    "marital-status",
+    "occupation",
+    "relationship",
+    "race",
+    "sex",
+    "capital-gain",
+    "capital-loss",
+    "hours-per-week",
+    "native-country",
+    "income"
+  ],
+  "label_column": "income",
+  "label_values": ["<=50K", ">50K"]
+}

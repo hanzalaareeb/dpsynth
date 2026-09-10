@@ -27,3 +27,8 @@ poetry.lock
 # Ignore generated docs
 docs/_build
 docs/api
+
+# Benchmark inputs are downloaded from versioned manifests. Generated outputs
+# are local experiment artifacts and should not be committed.
+benchmarks/data/
+benchmarks/results/

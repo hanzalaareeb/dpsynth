@@ -1,0 +1,2 @@
+# Unified diff files contain single-space blank context lines by design.
+benchmarks/patches/*.patch -whitespace

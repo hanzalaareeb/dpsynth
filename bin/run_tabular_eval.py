@@ -18,15 +18,15 @@ from collections.abc import Sequence
 import time
 from typing import Any
 
+import dataclasses
+import json
+
 from absl import app
 from absl import flags
 import apache_beam as beam
-from dpsynth.dataset_descriptors import dataset_descriptor
-from dpsynth.dataset_descriptors import proto_descriptors
 from dpsynth.eval import tabular_eval
 from dpsynth.eval import types
 from dpsynth.pipeline_transformations import diagnostic_info
-from google.protobuf import text_format
 import pandas as pd
 import pipeline_dp
 
@@ -112,7 +112,7 @@ def _read_csv_data():
 
   config = diagnostic_info.TabularEvalConfig(
       attributes=attributes,
-      attribute_types=[t.to_proto() for t in attribute_types],
+      attribute_types=attribute_types,
   )
   return original_data, synthetic_data, config
 
@@ -130,10 +130,15 @@ def _proto_to_tuple(
   return protos | f"{prefix_stage_name}_ToTuple" >> beam.Map(to_tuple)
 
 
+def _dataclass_to_json_bytes(item: Any) -> str:
+  """Converts a diagnostic info dataclass tree to JSON text."""
+  return json.dumps(dataclasses.asdict(item))
+
+
 def local_main():
   """Main function for local (in-process) execution."""
   assert (
-      _DATA_FORMAT_STR.value == "CSV"
+      _DATA_FORMAT_STR.value.lower() == "csv"
   ), "Unsupported data format for local execution."
   original_data, synthetic_data, config = _read_csv_data()
 
@@ -143,7 +148,7 @@ def local_main():
   eval_report = list(eval_report_collection)[0]
 
   with open_file(_EVAL_REPORT_PATH.value, "wt") as f:
-    f.write(text_format.MessageToString(eval_report))
+    f.write(json.dumps(dataclasses.asdict(eval_report)))
 
 
 def beam_main():
@@ -161,7 +166,7 @@ def beam_main():
 
     _ = (
         eval_report_collection
-        | "ToTextProto" >> beam.Map(str)
+        | "ToTextProto" >> beam.Map(_dataclass_to_json_bytes)
         | "WriteReport" >> beam.io.WriteToText(_EVAL_REPORT_PATH.value)
     )
 
